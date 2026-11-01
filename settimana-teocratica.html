@@ -180,10 +180,10 @@ D.tips.forEach(function(t){h+='<div class="tip"><span class="tx">'+esc(t.text)+'
 return h+'<div class="card"><input id="nt" placeholder="Nuovo spunto" maxlength="200"><button class="btn full" data-a="at">Aggiungi spunto</button></div>'}
 
 function bkText(){return JSON.stringify({app:"mst",v:1,data:D})}
-var GTOK=null,GEXP=0,GMSG="";
+var GCID="746123407283-i2nsua6qcnbd6b5olm0d7o6052hmh2n1.apps.googleusercontent.com",GTOK=null,GEXP=0,GMSG="";
 function gSt(m){GMSG=m;var e=$("#gs");if(e)e.textContent=m}
 function gLoad(cb){if(window.google&&google.accounts)return cb();var s=document.createElement("script");s.src="https://accounts.google.com/gsi/client";s.onload=cb;s.onerror=function(){toast("Servizi Google non raggiungibili da questa pagina");gSt("Servizi Google non raggiungibili da questa pagina.")};document.head.appendChild(s)}
-function gAuth(cb){var id=D.ui.gcid;if(!id){toast("Inserisci prima l’ID client Google");return}
+function gAuth(cb){var id=GCID;
 google.accounts.oauth2.initTokenClient({client_id:id,scope:"https://www.googleapis.com/auth/drive.appdata",callback:function(r){if(r&&r.access_token){GTOK=r.access_token;GEXP=Date.now()+((r.expires_in||3600)-60)*1000;cb&&cb()}else gSt("Collegamento a Google non riuscito.")}}).requestAccessToken({prompt:GTOK?"":"consent"})}
 function gf(u,o){o=o||{};o.headers=Object.assign({Authorization:"Bearer "+GTOK},o.headers||{});return fetch(u,o).then(function(r){if(!r.ok)throw r.status;return r})}
 function gFind(){return gf("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id)&q="+encodeURIComponent("name='mst-data.json'")).then(function(r){return r.json()}).then(function(j){return j.files&&j.files[0]?j.files[0].id:null})}
@@ -203,7 +203,7 @@ function autoHtml(){var l=D.ui.lastBackup;return '<div class="card"><h3>1. Salva
 function vBk(){
 var l=D.ui.lastBackup;
 return '<h1>Backup</h1><p class="sub">Proteggi i tuoi dati</p>'+autoHtml()+
-'<div class="card"><h3>2. Sincronizza con Google Drive</h3><p class="mu">Collega il tuo account Google: i dati si sincronizzano su tutti i dispositivi dove installi l’app e colleghi lo stesso account. Se due dispositivi modificano gli stessi dati, vale la versione più recente.</p><input id="gci" placeholder="ID client Google (una tantum)" value="'+esc(D.ui.gcid||"")+'"><div class="row"><button class="btn" style="flex:1" data-a="gcon">Collega e sincronizza</button><button class="btn sec" style="flex:1" data-a="gsy">Sincronizza ora</button></div><p class="mu" id="gs">'+esc(GMSG||(D.ui.gsync?"Ultima sincronizzazione: "+new Date(D.ui.gsync).toLocaleString("it-IT"):"Non ancora collegato."))+'</p></div>'+
+'<div class="card"><h3>2. Sincronizza con Google Drive</h3><p class="mu">Collega il tuo account Google: i dati si sincronizzano su tutti i dispositivi dove installi l’app e colleghi lo stesso account. Se due dispositivi modificano gli stessi dati, vale la versione più recente.</p><div class="row"><button class="btn" style="flex:1" data-a="gcon">Collega con Google</button><button class="btn sec" style="flex:1" data-a="gsy">Sincronizza ora</button></div><p class="mu" id="gs">'+esc(GMSG||(D.ui.gsync?"Ultima sincronizzazione: "+new Date(D.ui.gsync).toLocaleString("it-IT"):"Non ancora collegato."))+'</p></div>'+
 '<div class="card"><h3>Meteo</h3><p class="mu">'+(D.ui.loc?'Località: '+esc(D.ui.loc.name):'Scegli la città per vedere le previsioni nell’agenda.')+'</p><div class="row"><input id="cy" placeholder="Città" maxlength="60"><button class="btn sec" data-a="cy">Cerca</button></div><button class="btn sec full" data-a="gl">Usa la mia posizione</button><p class="mu">'+esc(wxStatus())+'</p></div>'+
 '<div class="card"><h3>Aggiungi alla schermata Home</h3><p class="mu">Per usarla come una vera app.</p><button class="btn sec full" data-a="inst">Mostra come fare</button></div>'}
 
@@ -269,7 +269,7 @@ case"gl":if(!navigator.geolocation){toast("Posizione non disponibile");return}na
 case"xa":var xk=fmt(wk);(D.extra[xk]=D.extra[xk]||[]).push({id:"e"+Date.now(),title:v==="Altra adunanza"?"":v,text:""});save();render();break;
 case"xr":if(!el.dataset.c){el.dataset.c="1";el.textContent="Elimina?";el.style.color="var(--dn)";el.style.fontSize=".85rem";setTimeout(function(){if(el.isConnected){el.dataset.c="";el.textContent="×";el.style.color="";el.style.fontSize=""}},3000);return}
 var xw=fmt(wk);D.extra[xw]=(D.extra[xw]||[]).filter(function(x){return x.id!==v});if(!D.extra[xw].length)delete D.extra[xw];save();render();break;
-case"gcon":var gi=$("#gci").value.trim();if(!gi){toast("Incolla prima l’ID client Google");return}D.ui.gcid=gi;save(1);GTOK=null;gLoad(gSync);break;
+case"gcon":GTOK=null;gLoad(gSync);break;
 case"gsy":gLoad(gSync);break;
 case"cp":doCopy();break;
 case"sh":doShare();break;
