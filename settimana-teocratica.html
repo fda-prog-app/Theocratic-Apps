@@ -191,14 +191,14 @@ function gGet(id){return gf("https://www.googleapis.com/drive/v3/files/"+id+"?al
 function gPut(obj,id){var m={name:"mst-data.json"};if(!id)m.parents=["appDataFolder"];var b="mstb"+Date.now(),body="--"+b+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+JSON.stringify(m)+"\r\n--"+b+"\r\nContent-Type: application/json\r\n\r\n"+JSON.stringify(obj)+"\r\n--"+b+"--";
 return gf("https://www.googleapis.com/upload/drive/v3/files"+(id?"/"+id:"")+"?uploadType=multipart&fields=id",{method:id?"PATCH":"POST",headers:{"Content-Type":"multipart/related; boundary="+b},body:body})}
 function gPack(){var d=JSON.parse(JSON.stringify(D));delete d.ui;return{mod:D.ui.mod||Date.now(),data:d}}
-function gDone(pulled){D.ui.gsync=Date.now();save(1);gSt("Sincronizzato: "+new Date().toLocaleString("it-IT"));if(pulled)render()}
+function gDone(pulled,msg){D.ui.gsync=Date.now();save(1);gSt((msg||"Sincronizzato")+": "+new Date().toLocaleString("it-IT"));if(pulled)render()}
 function gSync(){if(!GTOK||Date.now()>GEXP){gLoad(function(){gAuth(gSync)});return}
 gSt("Sincronizzazione in corso…");
 gFind().then(function(id){
-if(!id){if(!hasData()){gDone();return}return gPut(gPack()).then(function(){gDone()})}
+if(!id){if(!hasData()){gDone(0,"Nessun dato da caricare");return}return gPut(gPack()).then(function(){gDone(0,"Dati caricati su Drive")})}
 return gGet(id).then(function(rm){var lm=hasData()?(D.ui.mod||0):0;
-if(rm&&rm.data&&rm.mod>lm){var ui=D.ui;D=norm(rm.data);D.ui=ui;D.ui.mod=rm.mod;gDone(1)}
-else if(hasData()&&lm>(rm&&rm.mod||0)){return gPut(gPack(),id).then(function(){gDone()})}else gDone()})}).catch(function(e){if(e===401)GTOK=null;gSt("Errore di sincronizzazione ("+e+").")})}
+if(rm&&rm.data&&rm.mod>lm){var ui=D.ui;D=norm(rm.data);D.ui=ui;D.ui.mod=rm.mod;gDone(1,"Dati scaricati da Drive")}
+else if(hasData()&&lm>(rm&&rm.mod||0)){return gPut(gPack(),id).then(function(){gDone(0,"Dati caricati su Drive")})}else gDone(0,"Già aggiornato")})}).catch(function(e){if(e===401)GTOK=null;gSt("Errore di sincronizzazione ("+e+").")})}
 function autoHtml(){var l=D.ui.lastBackup;return '<div class="card"><h3>1. Salvataggio automatico sul dispositivo</h3><p class="mu">Attivo. I tuoi dati si salvano da soli sul dispositivo mentre scrivi.</p><div class="row"><button class="btn sec" style="flex:1" data-a="sh">Salva copia su file</button><label class="btn sec" style="flex:1;text-align:center">Ripristina da file<input id="fl" type="file" accept=".json,.txt,application/json,text/plain" hidden></label></div><p class="mu">La copia su file la fai tu con un tocco: scegli dove salvarla, ad esempio in File su iPhone.'+(l?' Ultima copia: '+esc(new Date(l).toLocaleString("it-IT"))+'.':'')+'</p></div>'}
 function vBk(){
 var l=D.ui.lastBackup;
