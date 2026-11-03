@@ -88,6 +88,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
+var VER="2026-11-03-1";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
@@ -203,14 +204,13 @@ function toast(m){var t=$("#toast");t.textContent=m;t.className="on";clearTimeou
 function stamp(){D.ui.lastBackup=Date.now();save(1)}
 
 function restore(txt){
-try{var o=JSON.parse(txt.trim());if(!o||o.app!=="mst"||!o.data)throw 0;var ui=D.ui;D=norm(o.data);D.ui=ui;D.ui.lastBackup=Date.now();save();render();toast("Backup ripristinato")}
+try{var i=txt.indexOf("{"),j=txt.lastIndexOf("}");var o=JSON.parse(txt.slice(i,j+1));if(o&&!o.data&&(o.tasks||o.notes||o.days))o={app:"mst",data:o};if(!o||o.app!=="mst"||!o.data)throw 0;var ui=D.ui;D=norm(o.data);D.ui=ui;D.ui.lastBackup=Date.now();save();render();toast("Backup ripristinato")}
 catch(e){toast("Backup non valido: controlla di aver copiato tutto il testo")}}
 
 function backupFile(){try{return new File([bkText()],"settimana-teocratica-backup.json",{type:"application/json"})}catch(e){return null}}
 function doShare(){
 var f=backupFile();
-if(f&&navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:"Backup settimana teocratica"}).then(function(){stamp();render()}).catch(function(){});return}
-if(navigator.share){navigator.share({title:"Backup settimana teocratica",text:bkText()}).then(function(){stamp();render()}).catch(function(){});return}
+if(f&&navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f]}).then(function(){stamp();render()}).catch(function(){});return}
 try{var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([bkText()],{type:"application/json"}));a.download="settimana-teocratica-backup.json";document.body.appendChild(a);a.click();a.remove();stamp();toast("Backup scaricato")}catch(e){doCopy()}}
 function doCopy(){
 var ta=$("#bk"),txt=bkText(),ok=function(){stamp();toast("Backup copiato");};
@@ -284,6 +284,10 @@ idbGet("d",function(s){var o=null;try{if(s)o=norm(JSON.parse(s))}catch(e){}
 if(o&&hasD(o)&&(!hasData()||(o.ui.mod||0)>(D.ui.mod||0)))return recover(o,"Dati recuperati dalla copia interna");
 if(hasData()){idbFlush();return}
 idb(function(db){if(!db)return;try{var q=db.transaction("kv").objectStore("kv").getAllKeys();q.onsuccess=function(){var ks=q.result.filter(function(k){return k[0]==="s"}).sort();if(!ks.length)return;idbGet(ks[ks.length-1],function(t){try{var x=norm(JSON.parse(t));if(hasD(x))recover(x,"Dati recuperati dall’ultima copia di sicurezza")}catch(e){}})}}catch(e){}})});
+var lastChk=0;
+function chk(){lastChk=Date.now();if(navigator.onLine===false)return;fetch(location.pathname+"?c="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():""}).then(function(t){var m=/var VER="([^"]+)"/.exec(t);if(!m||m[1]===VER)return;try{if(sessionStorage.getItem("mst_rl")===m[1])return;sessionStorage.setItem("mst_rl",m[1])}catch(e){}save(1);idbFlush();setTimeout(function(){location.replace(location.pathname+"?v="+encodeURIComponent(m[1]))},300)}).catch(function(){})}
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&Date.now()-lastChk>6e5)chk()});
+chk();
 render();
 if(D.ui.loc&&(!D.ui.wx||Date.now()-D.ui.wx.t>108e5))fetchWx();
 if(location.hash==="#aggiungi"&&!standalone())setTimeout(showInstall,400);else if(!standalone()&&!D.ui.installShown)setTimeout(function(){if(!D.ui.installShown)showInstall()},700);
