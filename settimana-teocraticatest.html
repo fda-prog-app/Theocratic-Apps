@@ -94,7 +94,11 @@ function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);retu
 function norm(o){var b=blank();for(var k in b){if(!o[k])o[k]=b[k]}return o}
 var D=load();
 (function(){var ch=false;Object.keys(D.notes).forEach(function(n){var b=n.slice(-3)==="|sp"?n.slice(0,-3):n.slice(-4)==="|spt"?n.slice(0,-4):null;if(!b||!(n in D.notes))return;var ti=D.notes[b+"|spt"]||"",tx=D.notes[b+"|sp"]||"";delete D.notes[b+"|spt"];delete D.notes[b+"|sp"];if(ti||tx){(D.extra[b]=D.extra[b]||[]).push({id:"e"+Date.now()+Math.random().toString(36).slice(2,6),title:ti||"Adunanza speciale",text:tx})}ch=true});if(ch)save()})();
-function save(nm){if(!nm)D.ui.mod=Date.now();mem=D;try{localStorage.setItem(K,JSON.stringify(D))}catch(e){}clearTimeout(save.g);if(!nm&&GTOK&&Date.now()<GEXP)save.g=setTimeout(gSync,8000)}
+var DB=null,idbT=null;
+function idb(cb){if(DB)return cb(DB);try{var r=indexedDB.open("mst",1);r.onupgradeneeded=function(){r.result.createObjectStore("kv")};r.onsuccess=function(){DB=r.result;cb(DB)};r.onerror=function(){cb(null)}}catch(e){cb(null)}}
+function idbGet(k,cb){idb(function(db){if(!db)return cb();try{var q=db.transaction("kv").objectStore("kv").get(k);q.onsuccess=function(){cb(q.result)};q.onerror=function(){cb()}}catch(e){cb()}})}
+function idbFlush(){clearTimeout(idbT);var s;try{s=JSON.stringify(D)}catch(e){return}idb(function(db){if(!db)return;try{var st=db.transaction("kv","readwrite").objectStore("kv");st.put(s,"d");if(hasData()){st.put(s,"s"+fmt(new Date()));var q=st.getAllKeys();q.onsuccess=function(){var ks=q.result.filter(function(k){return k[0]==="s"}).sort();ks.slice(0,Math.max(0,ks.length-7)).forEach(function(k){st.delete(k)})}}}catch(e){}})}
+function save(nm){if(!nm)D.ui.mod=Date.now();mem=D;try{localStorage.setItem(K,JSON.stringify(D))}catch(e){}clearTimeout(idbT);idbT=setTimeout(idbFlush,800)}
 var $=function(s){return document.querySelector(s)};
 var pad=function(n){return String(n).padStart(2,"0")};
 var fmt=function(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())};
@@ -111,7 +115,8 @@ var TIPS=["Prepara una domanda semplice per iniziare la conversazione.","Scegli 
 
 function wkLabel(){return it(wk,{day:"numeric",month:"short"})+" – "+it(addD(wk,6),{day:"numeric",month:"short"})}
 function wkNav(){return '<div class="wk"><button class="ib" data-a="wp" aria-label="Settimana precedente">‹</button><b>'+wkLabel()+'</b><button class="ib" data-a="wn" aria-label="Settimana successiva">›</button></div>'}
-function hasData(){return D.tasks.length||Object.keys(D.notes).length||Object.keys(D.days).length||Object.keys(D.sv).length||D.tips.length}
+function hasD(x){return x.tasks.length||Object.keys(x.notes).length||Object.keys(x.days).length||Object.keys(x.sv).length||x.tips.length||Object.keys(x.extra).length||x.stu.length}
+function hasData(){return hasD(D)}
 function stale(){var l=D.ui.lastBackup;return hasData()&&(!l||Date.now()-l>7*864e5)}
 
 var wxFail=false;
@@ -180,30 +185,10 @@ D.tips.forEach(function(t){h+='<div class="tip"><span class="tx">'+esc(t.text)+'
 return h+'<div class="card"><input id="nt" placeholder="Nuovo spunto" maxlength="200"><button class="btn full" data-a="at">Aggiungi spunto</button></div>'}
 
 function bkText(){return JSON.stringify({app:"mst",v:1,data:D})}
-var GCID="746123407283-i2nsua6qcnbd6b5olm0d7o6052hmh2n1.apps.googleusercontent.com",GTOK=null,GEXP=0,GMSG="";
-function gSt(m){GMSG=m;var e=$("#gs");if(e)e.textContent=m}
-function gLoad(cb){if(window.google&&google.accounts)return cb();var s=document.createElement("script");s.src="https://accounts.google.com/gsi/client";s.onload=cb;s.onerror=function(){toast("Servizi Google non raggiungibili da questa pagina");gSt("Servizi Google non raggiungibili da questa pagina.")};document.head.appendChild(s)}
-function gAuth(cb){var id=GCID;
-google.accounts.oauth2.initTokenClient({client_id:id,scope:"https://www.googleapis.com/auth/drive.appdata",callback:function(r){if(r&&r.access_token){GTOK=r.access_token;GEXP=Date.now()+((r.expires_in||3600)-60)*1000;cb&&cb()}else gSt("Collegamento a Google non riuscito.")}}).requestAccessToken({prompt:GTOK?"":"consent"})}
-function gf(u,o){o=o||{};o.headers=Object.assign({Authorization:"Bearer "+GTOK},o.headers||{});return fetch(u,o).then(function(r){if(!r.ok)throw r.status;return r})}
-function gFind(){return gf("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id)&q="+encodeURIComponent("name='mst-data.json'")).then(function(r){return r.json()}).then(function(j){return j.files&&j.files[0]?j.files[0].id:null})}
-function gGet(id){return gf("https://www.googleapis.com/drive/v3/files/"+id+"?alt=media").then(function(r){return r.json()})}
-function gPut(obj,id){var m={name:"mst-data.json"};if(!id)m.parents=["appDataFolder"];var b="mstb"+Date.now(),body="--"+b+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+JSON.stringify(m)+"\r\n--"+b+"\r\nContent-Type: application/json\r\n\r\n"+JSON.stringify(obj)+"\r\n--"+b+"--";
-return gf("https://www.googleapis.com/upload/drive/v3/files"+(id?"/"+id:"")+"?uploadType=multipart&fields=id",{method:id?"PATCH":"POST",headers:{"Content-Type":"multipart/related; boundary="+b},body:body})}
-function gPack(){var d=JSON.parse(JSON.stringify(D));delete d.ui;return{mod:D.ui.mod||Date.now(),data:d}}
-function gDone(pulled,msg){D.ui.gsync=Date.now();save(1);gSt((msg||"Sincronizzato")+": "+new Date().toLocaleString("it-IT"));if(pulled)render()}
-function gSync(){if(!GTOK||Date.now()>GEXP){gLoad(function(){gAuth(gSync)});return}
-gSt("Sincronizzazione in corso…");
-gFind().then(function(id){
-if(!id){if(!hasData()){gDone(0,"Nessun dato da caricare");return}return gPut(gPack()).then(function(){gDone(0,"Dati caricati su Drive")})}
-return gGet(id).then(function(rm){var lm=hasData()?(D.ui.mod||0):0;
-if(rm&&rm.data&&rm.mod>lm){var ui=D.ui;D=norm(rm.data);D.ui=ui;D.ui.mod=rm.mod;gDone(1,"Dati scaricati da Drive")}
-else if(hasData()&&lm>(rm&&rm.mod||0)){return gPut(gPack(),id).then(function(){gDone(0,"Dati caricati su Drive")})}else gDone(0,"Già aggiornato")})}).catch(function(e){if(e===401)GTOK=null;gSt("Errore di sincronizzazione ("+e+").")})}
-function autoHtml(){var l=D.ui.lastBackup;return '<div class="card"><h3>1. Salvataggio automatico sul dispositivo</h3><p class="mu">Attivo. I tuoi dati si salvano da soli sul dispositivo mentre scrivi.</p><div class="row"><button class="btn sec" style="flex:1" data-a="sh">Salva copia su file</button><label class="btn sec" style="flex:1;text-align:center">Ripristina da file<input id="fl" type="file" accept=".json,.txt,application/json,text/plain" hidden></label></div><p class="mu">La copia su file la fai tu con un tocco: scegli dove salvarla, ad esempio in File su iPhone.'+(l?' Ultima copia: '+esc(new Date(l).toLocaleString("it-IT"))+'.':'')+'</p></div>'}
+function autoHtml(){var l=D.ui.lastBackup;return '<div class="card"><h3>Salvataggio automatico sul dispositivo</h3><p class="mu">Attivo. I dati si salvano da soli a ogni modifica e ogni 10 secondi, con una copia di sicurezza al giorno degli ultimi 7 giorni.</p><div class="row"><button class="btn sec" style="flex:1" data-a="sh">Salva copia su file</button><label class="btn sec" style="flex:1;text-align:center">Ripristina da file<input id="fl" type="file" accept=".json,.txt,application/json,text/plain" hidden></label></div><p class="mu">Se elimini l’app dalla Home o cancelli i dati dei siti in Impostazioni, i dati si perdono. Ogni tanto salva una copia su file in un posto sicuro, ad esempio iCloud Drive in File.'+(l?' Ultima copia: '+esc(new Date(l).toLocaleString("it-IT"))+'.':'')+'</p></div>'}
 function vBk(){
 var l=D.ui.lastBackup;
 return '<h1>Backup</h1><p class="sub">Proteggi i tuoi dati</p>'+autoHtml()+
-'<div class="card"><h3>2. Sincronizza con Google Drive</h3><p class="mu">Collega il tuo account Google: i dati si sincronizzano su tutti i dispositivi dove installi l’app e colleghi lo stesso account. Se due dispositivi modificano gli stessi dati, vale la versione più recente.</p><div class="row"><button class="btn" style="flex:1" data-a="gcon">Collega con Google</button><button class="btn sec" style="flex:1" data-a="gsy">Sincronizza ora</button></div><p class="mu" id="gs">'+esc(GMSG||(D.ui.gsync?"Ultima sincronizzazione: "+new Date(D.ui.gsync).toLocaleString("it-IT"):"Non ancora collegato."))+'</p></div>'+
 '<div class="card"><h3>Meteo</h3><p class="mu">'+(D.ui.loc?'Località: '+esc(D.ui.loc.name):'Scegli la città per vedere le previsioni nell’agenda.')+'</p><div class="row"><input id="cy" placeholder="Città" maxlength="60"><button class="btn sec" data-a="cy">Cerca</button></div><button class="btn sec full" data-a="gl">Usa la mia posizione</button><p class="mu">'+esc(wxStatus())+'</p></div>'+
 '<div class="card"><h3>Aggiungi alla schermata Home</h3><p class="mu">Per usarla come una vera app.</p><button class="btn sec full" data-a="inst">Mostra come fare</button></div>'}
 
@@ -269,8 +254,6 @@ case"gl":if(!navigator.geolocation){toast("Posizione non disponibile");return}na
 case"xa":var xk=fmt(wk);(D.extra[xk]=D.extra[xk]||[]).push({id:"e"+Date.now(),title:v==="Altra adunanza"?"":v,text:""});save();render();break;
 case"xr":if(!el.dataset.c){el.dataset.c="1";el.textContent="Elimina?";el.style.color="var(--dn)";el.style.fontSize=".85rem";setTimeout(function(){if(el.isConnected){el.dataset.c="";el.textContent="×";el.style.color="";el.style.fontSize=""}},3000);return}
 var xw=fmt(wk);D.extra[xw]=(D.extra[xw]||[]).filter(function(x){return x.id!==v});if(!D.extra[xw].length)delete D.extra[xw];save();render();break;
-case"gcon":GTOK=null;gLoad(gSync);break;
-case"gsy":gLoad(gSync);break;
 case"cp":doCopy();break;
 case"sh":doShare();break;
 case"rs":var r=$("#rs").value;if(!r.trim()){toast("Incolla prima il testo del backup");return}restore(r);break;
@@ -293,6 +276,14 @@ var l=document.createElement("link");l.rel="apple-touch-icon";l.href=cv.toDataUR
 var mf=document.createElement("link");mf.rel="manifest";mf.href=URL.createObjectURL(new Blob([JSON.stringify({name:"La mia settimana teocratica",short_name:"Settimana",display:"standalone",background_color:"#eef1f4",theme_color:"#24405e",icons:[{src:l.href,sizes:"180x180",type:"image/png"}]})],{type:"application/manifest+json"}));document.head.appendChild(mf)}catch(e){}
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
 
+setInterval(function(){save(1);idbFlush()},10000);
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden"){save(1);idbFlush()}});
+window.addEventListener("pagehide",function(){save(1);idbFlush()});
+function recover(o,msg){D=o;save(1);render();toast(msg)}
+idbGet("d",function(s){var o=null;try{if(s)o=norm(JSON.parse(s))}catch(e){}
+if(o&&hasD(o)&&(!hasData()||(o.ui.mod||0)>(D.ui.mod||0)))return recover(o,"Dati recuperati dalla copia interna");
+if(hasData()){idbFlush();return}
+idb(function(db){if(!db)return;try{var q=db.transaction("kv").objectStore("kv").getAllKeys();q.onsuccess=function(){var ks=q.result.filter(function(k){return k[0]==="s"}).sort();if(!ks.length)return;idbGet(ks[ks.length-1],function(t){try{var x=norm(JSON.parse(t));if(hasD(x))recover(x,"Dati recuperati dall’ultima copia di sicurezza")}catch(e){}})}}catch(e){}})});
 render();
 if(D.ui.loc&&(!D.ui.wx||Date.now()-D.ui.wx.t>108e5))fetchWx();
 if(location.hash==="#aggiungi"&&!standalone())setTimeout(showInstall,400);else if(!standalone()&&!D.ui.installShown)setTimeout(function(){if(!D.ui.installShown)showInstall()},700);
