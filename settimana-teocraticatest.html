@@ -88,7 +88,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
-var VER="2026-11-03-2";
+var VER="2026-11-04-1";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
@@ -153,10 +153,24 @@ card("Adunanza infrasettimanale","Settimana del "+wkLabel(),["inf","Scrivi qui i
 card("Adunanza del fine settimana","Settimana del "+wkLabel(),["fs","Scrivi qui i tuoi appunti…"])+xHtml(k)}
 
 function fmtM(n){var h=Math.floor(n/60),m=n%60;return h+" h"+(m?" "+m+" min":"")}
-function totHtml(){var p=mo.getFullYear()+"-"+pad(mo.getMonth()+1),sm=0,st={},cm=0;
+function totHtml(pg){var p=mo.getFullYear()+"-"+pad(mo.getMonth()+1),sm=0,st={},cm=0;
 for(var k in D.sv){if(k.slice(0,7)!==p)continue;var s=D.sv[k];sm+=(s.h||0)*60+(s.m||0);(s.st||[]).forEach(function(n){st[n.trim().toLowerCase()]=n});cm+=Math.round((s.c||0)*60)}
 function r(l,v,b){return '<div style="display:flex;justify-content:space-between;padding:4px 0'+(b?';border-top:1px solid var(--bd);margin-top:4px;font-weight:700':'')+'"><span>'+l+'</span><span>'+v+'</span></div>'}
-return '<h3>Totali di '+esc(it(mo,{month:"long"}))+'</h3>'+r("Ore di servizio",fmtM(sm))+r("Ore di credito",fmtM(cm))+r("Totale ore",fmtM(sm+cm),1)+r("Studi",Object.keys(st).length)+(Object.keys(st).length?'<div class="mu">'+esc(Object.keys(st).map(function(k){return st[k]}).join(", "))+'</div>':'')}
+return '<h3>'+(pg?'Progressivo di ':'Totali di ')+esc(it(mo,{month:"long"}))+'</h3>'+r("Ore di servizio",fmtM(sm))+r("Ore di credito",fmtM(cm))+r("Totale ore",fmtM(sm+cm),1)+r("Studi",Object.keys(st).length)+(Object.keys(st).length?'<div class="mu">'+esc(Object.keys(st).map(function(k){return st[k]}).join(", "))+'</div>':'')}
+function monthSum(p){var sm=0,cm=0,st={};for(var k in D.sv){if(k.slice(0,7)!==p)continue;var s=D.sv[k];sm+=(s.h||0)*60+(s.m||0);cm+=Math.round((s.c||0)*60);(s.st||[]).forEach(function(n){st[n.trim().toLowerCase()]=1})}return{sm:sm,cm:cm,n:Object.keys(st).length}}
+function repText(p){var a=p.split("-"),d=new Date(+a[0],+a[1]-1,1),t=monthSum(p);return "Rapporto di servizio - "+it(d,{month:"long",year:"numeric"})+"\nOre di servizio: "+fmtM(t.sm)+"\nOre di credito: "+fmtM(t.cm)+"\nTotale ore: "+fmtM(t.sm+t.cm)+"\nStudi biblici: "+t.n}
+function repHtml(){var n=new Date(),o="";for(var i=0;i<12;i++){var d=new Date(n.getFullYear(),n.getMonth()-i,1);o+='<option value="'+d.getFullYear()+"-"+pad(d.getMonth()+1)+'">'+esc(it(d,{month:"long",year:"numeric"}))+(i?"":" (in corso)")+"</option>"}
+return '<div class="card"><h3>Invia il rapporto del mese</h3><p class="mu">Manda su WhatsApp o condividi il totale del mese: ore di servizio, ore di credito e studi.</p><label class="fl"><span>Mese</span><select id="rm">'+o+'</select></label><div class="row"><button class="btn sec" style="flex:1" data-a="rwa">WhatsApp</button><button class="btn sec" style="flex:1" data-a="rsx">Condividi</button></div></div>'}
+function sendRep(mode,p,force){var a=p.split("-"),y=+a[0],m=+a[1]-1;
+if(new Date()<new Date(y,m+1,1)&&!force){var d=new Date(y,m,1);$("#md").innerHTML='<div class="ov"><div class="sh" role="dialog" aria-modal="true"><h2 style="margin-top:0">Mese non ancora finito</h2><p class="mu">Il mese di '+esc(it(d,{month:"long"}))+' termina il '+new Date(y,m+1,0).getDate()+' '+esc(it(d,{month:"long"}))+'. Il rapporto che invieresti ora sarebbe parziale.</p><div class="row"><button class="btn sec" style="flex:1" data-a="cl">Annulla</button><button class="btn" style="flex:1" data-a="rgo" data-v="'+mode+"|"+p+'">Invia comunque</button></div></div></div>';return}
+var t=repText(p);
+if(mode==="wa")window.open("https://wa.me/?text="+encodeURIComponent(t),"_blank");
+else if(navigator.share)navigator.share({text:t}).catch(function(){});
+else if(navigator.clipboard)navigator.clipboard.writeText(t).then(function(){toast("Rapporto copiato")});
+else toast("Condivisione non disponibile")}
+function showDay(){var s=D.sv[sel]||{},mn=(s.h||0)*60+(s.m||0),cr=Math.round((s.c||0)*60),st=s.st||[];
+function r(l,v){return '<div style="display:flex;justify-content:space-between;padding:4px 0"><span>'+l+"</span><span>"+v+"</span></div>"}
+$("#md").innerHTML='<div class="ov"><div class="sh" role="dialog" aria-modal="true"><h2 style="margin-top:0">'+esc(it(parse(sel),{weekday:"long",day:"numeric",month:"long"}))+'</h2><h3>Servizio del giorno</h3>'+((!mn&&!cr&&!st.length)?'<div class="empty">Nessun servizio segnato per questo giorno.</div>':r("Ore di servizio",fmtM(mn))+r("Ore di credito",fmtM(cr)+(s.ct?" ("+esc(s.ct)+")":""))+r("Studi",st.length?esc(st.join(", ")):"Nessuno"))+'<div class="card" style="margin-top:12px">'+totHtml(1)+'</div><button class="btn full" data-a="cl">Chiudi</button></div></div>'}
 function stForm(s){var l=s.st||[],o='<option value="">Scegli uno studente</option>';
 D.stu.forEach(function(n){o+='<option>'+esc(n)+'</option>'});
 var h='<div class="card"><h3>Studi del giorno</h3>';
@@ -189,7 +203,7 @@ function bkText(){return JSON.stringify({app:"mst",v:1,data:D})}
 function autoHtml(){var l=D.ui.lastBackup;return '<div class="card"><h3>Salvataggio automatico sul dispositivo</h3><p class="mu">Attivo. I dati si salvano da soli a ogni modifica e ogni 10 secondi, con una copia di sicurezza al giorno degli ultimi 7 giorni.</p><div class="row"><button class="btn sec" style="flex:1" data-a="sh">Salva copia su file</button><label class="btn sec" style="flex:1;text-align:center">Ripristina da file<input id="fl" type="file" accept=".json,.txt,application/json,text/plain" hidden></label></div><p class="mu">Se elimini l’app dalla Home o cancelli i dati dei siti in Impostazioni, i dati si perdono. Ogni tanto salva una copia su file in un posto sicuro, ad esempio iCloud Drive in File.'+(l?' Ultima copia: '+esc(new Date(l).toLocaleString("it-IT"))+'.':'')+'</p><p class="mu">Versione dell’app: '+VER+'</p></div>'}
 function vBk(){
 var l=D.ui.lastBackup;
-return '<h1>Backup</h1><p class="sub">Proteggi i tuoi dati</p>'+autoHtml()+
+return '<h1>Backup</h1><p class="sub">Proteggi i tuoi dati</p>'+autoHtml()+repHtml()+
 '<div class="card"><h3>Meteo</h3><p class="mu">'+(D.ui.loc?'Località: '+esc(D.ui.loc.name):'Scegli la città per vedere le previsioni nell’agenda.')+'</p><div class="row"><input id="cy" placeholder="Città" maxlength="60"><button class="btn sec" data-a="cy">Cerca</button></div><button class="btn sec full" data-a="gl">Usa la mia posizione</button><p class="mu">'+esc(wxStatus())+'</p></div>'+
 '<div class="card"><h3>Aggiungi alla schermata Home</h3><p class="mu">Per usarla come una vera app.</p><button class="btn sec full" data-a="inst">Mostra come fare</button></div>'}
 
@@ -234,7 +248,7 @@ case"wp":wk=addD(wk,-7);render();break;
 case"wn":wk=addD(wk,7);render();break;
 case"mp":mo=new Date(mo.getFullYear(),mo.getMonth()-1,1);render();break;
 case"mn":mo=new Date(mo.getFullYear(),mo.getMonth()+1,1);render();break;
-case"sd":sel=v;var d=parse(v);if(d.getMonth()!==mo.getMonth())mo=new Date(d.getFullYear(),d.getMonth(),1);render();break;
+case"sd":sel=v;var d=parse(v);if(d.getMonth()!==mo.getMonth())mo=new Date(d.getFullYear(),d.getMonth(),1);render();showDay();break;
 case"add":var t=$("#tt").value.trim();if(!t){toast("Scrivi prima l’appuntamento");return}D.tasks.push({id:"t"+Date.now(),day:$("#td").value,time:$("#tm").value,type:$("#ty").value.trim(),text:t,done:false});save();render();break;
 case"tg":D.tasks.forEach(function(x){if(x.id===v)x.done=el.checked});save();render();break;
 case"rm":D.tasks=D.tasks.filter(function(x){return x.id!==v});save();render();break;
@@ -259,6 +273,9 @@ case"sh":doShare();break;
 case"rs":var r=$("#rs").value;if(!r.trim()){toast("Incolla prima il testo del backup");return}restore(r);break;
 case"inst":showInstall();break;
 case"doinst":if(dp){dp.prompt();dp=null}$("#md").innerHTML="";break;
+case"rwa":sendRep("wa",$("#rm").value);break;
+case"rsx":sendRep("sh",$("#rm").value);break;
+case"rgo":var q=v.split("|");$("#md").innerHTML="";sendRep(q[0],q[1],1);break;
 case"cl":$("#md").innerHTML="";break}}
 
 document.addEventListener("click",function(e){var t=e.target.closest("[data-a]");if(!t||t.type==="checkbox")return;act(t.dataset.a,t.dataset.v,t)});
