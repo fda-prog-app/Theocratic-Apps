@@ -88,7 +88,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
-var VER="2026-11-03-1";
+var VER="2026-11-03-2";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
@@ -186,7 +186,7 @@ D.tips.forEach(function(t){h+='<div class="tip"><span class="tx">'+esc(t.text)+'
 return h+'<div class="card"><input id="nt" placeholder="Nuovo spunto" maxlength="200"><button class="btn full" data-a="at">Aggiungi spunto</button></div>'}
 
 function bkText(){return JSON.stringify({app:"mst",v:1,data:D})}
-function autoHtml(){var l=D.ui.lastBackup;return '<div class="card"><h3>Salvataggio automatico sul dispositivo</h3><p class="mu">Attivo. I dati si salvano da soli a ogni modifica e ogni 10 secondi, con una copia di sicurezza al giorno degli ultimi 7 giorni.</p><div class="row"><button class="btn sec" style="flex:1" data-a="sh">Salva copia su file</button><label class="btn sec" style="flex:1;text-align:center">Ripristina da file<input id="fl" type="file" accept=".json,.txt,application/json,text/plain" hidden></label></div><p class="mu">Se elimini l’app dalla Home o cancelli i dati dei siti in Impostazioni, i dati si perdono. Ogni tanto salva una copia su file in un posto sicuro, ad esempio iCloud Drive in File.'+(l?' Ultima copia: '+esc(new Date(l).toLocaleString("it-IT"))+'.':'')+'</p></div>'}
+function autoHtml(){var l=D.ui.lastBackup;return '<div class="card"><h3>Salvataggio automatico sul dispositivo</h3><p class="mu">Attivo. I dati si salvano da soli a ogni modifica e ogni 10 secondi, con una copia di sicurezza al giorno degli ultimi 7 giorni.</p><div class="row"><button class="btn sec" style="flex:1" data-a="sh">Salva copia su file</button><label class="btn sec" style="flex:1;text-align:center">Ripristina da file<input id="fl" type="file" accept=".json,.txt,application/json,text/plain" hidden></label></div><p class="mu">Se elimini l’app dalla Home o cancelli i dati dei siti in Impostazioni, i dati si perdono. Ogni tanto salva una copia su file in un posto sicuro, ad esempio iCloud Drive in File.'+(l?' Ultima copia: '+esc(new Date(l).toLocaleString("it-IT"))+'.':'')+'</p><p class="mu">Versione dell’app: '+VER+'</p></div>'}
 function vBk(){
 var l=D.ui.lastBackup;
 return '<h1>Backup</h1><p class="sub">Proteggi i tuoi dati</p>'+autoHtml()+
