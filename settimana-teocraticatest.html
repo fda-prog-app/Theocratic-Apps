@@ -94,7 +94,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
-var VER="2026-11-07-1";
+var VER="2026-11-07-2";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},bib:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
@@ -117,7 +117,7 @@ var it=function(d,o){return d.toLocaleDateString("it-IT",o)};
 var tab="ag",wk=mon(new Date()),mo=new Date(),sel=fmt(new Date()),dp=null;
 mo.setDate(1);
 var TODAY=function(){return fmt(new Date())};
-var TABS=[["ag","🗓️","Agenda settimanale"],["ad","📝","Adunanze e Appunti"],["ca","📅","Rapporto e note"],["sv","🚪","Idee per il ministero"],["bk","💾","Backup"]];
+var TABS=[["ag","🗓️","Agenda settimanale"],["ad","📝","Adunanze e Appunti"],["ca","📅","Rapporto e note"],["sv","🚪","Idee per il ministero"],["bk","💾","Backup e resoconti"]];
 var TIPS=["Prepara una domanda semplice per iniziare la conversazione.","Scegli un versetto breve da leggere e un pensiero da condividere.","Ascolta con attenzione e adatta la presentazione a ciò che dice la persona.","Annota nomi e interessi di chi incontri, per preparare le visite ulteriori.","Lascia una domanda aperta da riprendere alla visita successiva.","Concorda in anticipo con il compagno chi inizia e chi aggiunge.","Scegli l’approccio in base all’orario e al tipo di territorio.","Porta con te le pubblicazioni e un appunto con i contatti da richiamare."];
 
 function wkLabel(){return it(wk,{day:"numeric",month:"short"})+" – "+it(addD(wk,6),{day:"numeric",month:"short"})}
@@ -178,8 +178,24 @@ function r(l,v,b){return '<div style="display:flex;justify-content:space-between
 return '<h3>'+(pg?'Progressivo di ':'Totali di ')+esc(it(mo,{month:"long"}))+'</h3>'+r("Ore di servizio",fmtM(sm))+r("Ore di credito",fmtM(cm))+r("Totale ore",fmtM(sm+cm),1)+r("Studi",Object.keys(st).length)+(Object.keys(st).length?'<div class="mu">'+esc(Object.keys(st).map(function(k){return st[k]}).join(", "))+'</div>':'')}
 function monthSum(p){var sm=0,cm=0,st={};for(var k in D.sv){if(k.slice(0,7)!==p)continue;var s=D.sv[k];sm+=(s.h||0)*60+(s.m||0);cm+=Math.round((s.c||0)*60);(s.st||[]).forEach(function(n){st[n.trim().toLowerCase()]=1})}return{sm:sm,cm:cm,n:Object.keys(st).length}}
 function repText(p){var a=p.split("-"),d=new Date(+a[0],+a[1]-1,1),t=monthSum(p);return "Rapporto di servizio - "+it(d,{month:"long",year:"numeric"})+"\nOre di servizio: "+fmtM(t.sm)+"\nOre di credito: "+fmtM(t.cm)+"\nTotale ore: "+fmtM(t.sm+t.cm)+"\nStudi biblici: "+t.n}
+function repPrev(p){var t=monthSum(p),a=p.split("-"),d=new Date(+a[0],+a[1]-1,1),cur=p===fmt(new Date()).slice(0,7);
+function r(l,v){return '<div style="display:flex;justify-content:space-between;padding:3px 0"><span>'+l+"</span><b>"+v+"</b></div>"}
+return '<p class="mu" style="margin:8px 0 4px">'+(cur?"Progressivo di "+esc(it(d,{month:"long"}))+" fino a oggi":"Totale di "+esc(it(d,{month:"long",year:"numeric"})))+"</p>"+r("Ore di servizio",fmtM(t.sm))+r("Ore di credito",fmtM(t.cm))+r("Totale ore",fmtM(t.sm+t.cm))+r("Studi biblici",t.n)}
+function bibProg(){var seen={},per=[],i,tot=0,done=[],part=[];for(i=0;i<66;i++)per.push(0);
+for(var d in D.bib)(D.bib[d]||[]).forEach(function(k){seen[k]=1});
+Object.keys(seen).forEach(function(k){var b=+k.split(":")[0];if(b>=0&&b<66){per[b]++;tot++}});
+for(i=0;i<66;i++){if(per[i]>=BK[i][1])done.push(i);else if(per[i]>0)part.push(i)}
+return{per:per,tot:tot,done:done,part:part}}
+function bibText(){var g=bibProg(),pc=(Math.round(g.tot/11.89)/10).toString().replace(".",",");
+var t="Lettura della Bibbia - progressivo al "+it(new Date(),{day:"numeric",month:"long",year:"numeric"})+"\nCapitoli letti: "+g.tot+" su 1189 ("+pc+"%)\nLibri completati: "+g.done.length+" su 66"+(g.done.length?" ("+g.done.map(function(i){return BK[i][0]}).join(", ")+")":"")+"\nLibri iniziati: "+g.part.length;
+if(g.part.length)t+="\nIn corso: "+g.part.map(function(i){return BK[i][0]+" "+g.per[i]+"/"+BK[i][1]}).join(", ");return t}
+function sendTxt(mode,t){if(mode==="wa")window.open("https://wa.me/?text="+encodeURIComponent(t),"_blank");else if(navigator.share)navigator.share({text:t}).catch(function(){});else if(navigator.clipboard)navigator.clipboard.writeText(t).then(function(){toast("Testo copiato")});else toast("Condivisione non disponibile")}
+function bibRepHtml(){var g=bibProg();
+function r(l,v){return '<div style="display:flex;justify-content:space-between;padding:3px 0"><span>'+l+"</span><b>"+v+"</b></div>"}
+var all=g.done.concat(g.part).sort(function(a,b){return a-b}),det=all.map(function(i){return r(BK[i][0],g.per[i]+"/"+BK[i][1]+(g.per[i]>=BK[i][1]?" ✓":""))}).join("");
+return '<div class="card"><h3>Lettura della Bibbia</h3><p class="mu">Progressivo di tutti i capitoli segnati come letti finora.</p>'+r("Capitoli letti",g.tot+" su 1189")+r("Libri completati",g.done.length+" su 66")+r("Libri iniziati",g.part.length)+(all.length?'<details style="margin-top:8px"><summary>Dettaglio per libro</summary>'+det+"</details>":"")+'<div class="row" style="margin-top:10px"><button class="btn sec" style="flex:1" data-a="bwa">WhatsApp</button><button class="btn sec" style="flex:1" data-a="bsx">Condividi</button></div></div>'}
 function repHtml(){var n=new Date(),o="";for(var i=0;i<12;i++){var d=new Date(n.getFullYear(),n.getMonth()-i,1);o+='<option value="'+d.getFullYear()+"-"+pad(d.getMonth()+1)+'">'+esc(it(d,{month:"long",year:"numeric"}))+(i?"":" (in corso)")+"</option>"}
-return '<div class="card"><h3>Invia il rapporto del mese</h3><p class="mu">Manda su WhatsApp o condividi il totale del mese: ore di servizio, ore di credito e studi.</p><label class="fl"><span>Mese</span><select id="rm">'+o+'</select></label><div class="row"><button class="btn sec" style="flex:1" data-a="rwa">WhatsApp</button><button class="btn sec" style="flex:1" data-a="rsx">Condividi</button></div></div>'}
+return '<div class="card"><h3>Invia il rapporto del mese</h3><p class="mu">Manda su WhatsApp o condividi il totale del mese: ore di servizio, ore di credito e studi.</p><label class="fl"><span>Mese</span><select id="rm">'+o+'</select></label><div id="rmp">'+repPrev(fmt(n).slice(0,7))+'</div><div class="row"><button class="btn sec" style="flex:1" data-a="rwa">WhatsApp</button><button class="btn sec" style="flex:1" data-a="rsx">Condividi</button></div></div>'}
 function sendRep(mode,p,force){var a=p.split("-"),y=+a[0],m=+a[1]-1;
 if(new Date()<new Date(y,m+1,1)&&!force){var d=new Date(y,m,1);$("#md").innerHTML='<div class="ov"><div class="sh" role="dialog" aria-modal="true"><h2 style="margin-top:0">Mese non ancora finito</h2><p class="mu">Il mese di '+esc(it(d,{month:"long"}))+' termina il '+new Date(y,m+1,0).getDate()+' '+esc(it(d,{month:"long"}))+'. Il rapporto che invieresti ora sarebbe parziale.</p><div class="row"><button class="btn sec" style="flex:1" data-a="cl">Annulla</button><button class="btn" style="flex:1" data-a="rgo" data-v="'+mode+"|"+p+'">Invia comunque</button></div></div></div>';return}
 var t=repText(p);
@@ -219,12 +235,9 @@ D.tips.forEach(function(t){h+='<div class="tip"><span class="tx">'+esc(t.text)+'
 return h+'<div class="card"><input id="nt" placeholder="Nuovo spunto" maxlength="200"><button class="btn full" data-a="at">Aggiungi spunto</button></div>'}
 
 function bkText(){return JSON.stringify({app:"mst",v:1,data:D})}
-function autoHtml(){var l=D.ui.lastBackup;return '<div class="card"><h3>Salvataggio automatico sul dispositivo</h3><p class="mu">Attivo. I dati si salvano da soli a ogni modifica e ogni 10 secondi, con una copia di sicurezza al giorno degli ultimi 7 giorni.</p><div class="row"><button class="btn sec" style="flex:1" data-a="sh">Salva copia su file</button><label class="btn sec" style="flex:1;text-align:center">Ripristina da file<input id="fl" type="file" accept=".json,.txt,application/json,text/plain" hidden></label></div><p class="mu">Se elimini l’app dalla Home o cancelli i dati dei siti in Impostazioni, i dati si perdono. Ogni tanto salva una copia su file in un posto sicuro, ad esempio iCloud Drive in File.'+(l?' Ultima copia: '+esc(new Date(l).toLocaleString("it-IT"))+'.':'')+'</p><p class="mu">Versione dell’app: '+VER+'</p></div>'}
-function vBk(){
-var l=D.ui.lastBackup;
-return '<h1>Backup</h1><p class="sub">Proteggi i tuoi dati</p>'+autoHtml()+repHtml()+
-'<div class="card"><h3>Meteo</h3><p class="mu">'+(D.ui.loc?'Località: '+esc(D.ui.loc.name):'Scegli la città per vedere le previsioni nell’agenda.')+'</p><div class="row"><input id="cy" placeholder="Città" maxlength="60"><button class="btn sec" data-a="cy">Cerca</button></div><button class="btn sec full" data-a="gl">Usa la mia posizione</button><p class="mu">'+esc(wxStatus())+'</p></div>'+
-'<div class="card"><h3>Aggiungi alla schermata Home</h3><p class="mu">Per usarla come una vera app.</p><button class="btn sec full" data-a="inst">Mostra come fare</button></div>'}
+function autoHtml(){var l=D.ui.lastBackup;return '<div class="card"><h3>Backup e schermata Home</h3><p class="mu">Attivo. I dati si salvano da soli a ogni modifica e ogni 10 secondi, con una copia di sicurezza al giorno degli ultimi 7 giorni.</p><div class="row"><button class="btn sec" style="flex:1" data-a="sh">Salva copia su file</button><label class="btn sec" style="flex:1;text-align:center">Ripristina da file<input id="fl" type="file" accept=".json,.txt,application/json,text/plain" hidden></label></div><p class="mu">Se elimini l’app dalla Home o cancelli i dati dei siti in Impostazioni, i dati si perdono. Ogni tanto salva una copia su file in un posto sicuro, ad esempio iCloud Drive in File.'+(l?' Ultima copia: '+esc(new Date(l).toLocaleString("it-IT"))+'.':'')+'</p><h3 style="margin-top:16px">Aggiungi alla schermata Home</h3><p class="mu">Per usarla come una vera app.</p><button class="btn sec full" data-a="inst">Mostra come fare</button><p class="mu">Versione dell’app: '+VER+'</p></div>'}
+function meteoHtml(){return '<div class="card"><h3>Meteo</h3><p class="mu">'+(D.ui.loc?'Località: '+esc(D.ui.loc.name):'Scegli la città per vedere le previsioni nell’agenda.')+'</p><div class="row"><input id="cy" placeholder="Città" maxlength="60"><button class="btn sec" data-a="cy">Cerca</button></div><button class="btn sec full" data-a="gl">Usa la mia posizione</button><p class="mu">'+esc(wxStatus())+'</p></div>'}
+function vBk(){return '<h1>Backup e resoconti</h1><p class="sub">Resoconti, meteo e protezione dei dati</p>'+bibRepHtml()+repHtml()+meteoHtml()+autoHtml()}
 
 function grow(t){t.style.height="auto";var m=Math.max(260,Math.round(window.innerHeight*0.6));t.style.height=Math.min(t.scrollHeight+2,m)+"px"}
 function growAll(){document.querySelectorAll("textarea[data-nk],textarea[data-xi],textarea[data-dk]").forEach(grow)}
@@ -297,6 +310,8 @@ case"rsx":sendRep("sh",$("#rm").value);break;
 case"rgo":var q=v.split("|");$("#md").innerHTML="";sendRep(q[0],q[1],1);break;
 case"bc":var bk=(+D.ui.bb||0)+":"+v,bdy=bday||TODAY(),bar=D.bib[bdy]||[],bix=bar.indexOf(bk);if(bix>=0)bar.splice(bix,1);else bar.push(bk);if(bar.length)D.bib[bdy]=bar;else delete D.bib[bdy];save();var bst=$("#app").scrollTop;render();$("#app").scrollTop=bst;break;
 case"bow":window.open("https://wol.jw.org/it/wol/b/r6/lp-i/nwtsty/"+((+D.ui.bb||0)+1)+"/"+$("#bcl").value,"_blank");break;
+case"bwa":sendTxt("wa",bibText());break;
+case"bsx":sendTxt("sh",bibText());break;
 case"cl":$("#md").innerHTML="";break}}
 
 document.addEventListener("click",function(e){var t=e.target.closest("[data-a]");if(!t||t.type==="checkbox")return;act(t.dataset.a,t.dataset.v,t)});
@@ -326,7 +341,7 @@ var lastChk=0;
 function chk(){lastChk=Date.now();if(navigator.onLine===false)return;fetch(location.pathname+"?c="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.text():""}).then(function(t){var m=/var VER="([^"]+)"/.exec(t);if(!m||m[1]===VER)return;try{if(sessionStorage.getItem("mst_rl")===m[1])return;sessionStorage.setItem("mst_rl",m[1])}catch(e){}save(1);idbFlush();setTimeout(function(){location.replace(location.pathname+"?v="+encodeURIComponent(m[1]))},300)}).catch(function(){})}
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&Date.now()-lastChk>6e5)chk()});
 chk();
-document.addEventListener("change",function(e){var t=e.target,st=$("#app").scrollTop;if(t.id==="bb"){D.ui.bb=+t.value;save(1)}else if(t.id==="bd"&&t.value){bday=t.value}else return;render();$("#app").scrollTop=st});
+document.addEventListener("change",function(e){var t=e.target,st=$("#app").scrollTop;if(t.id==="bb"){D.ui.bb=+t.value;save(1)}else if(t.id==="bd"&&t.value){bday=t.value}else if(t.id==="rm"){var pv=$("#rmp");if(pv)pv.innerHTML=repPrev(t.value);return}else return;render();$("#app").scrollTop=st});
 document.addEventListener("toggle",function(e){var t=e.target;if(t.id==="bibd"&&!!D.ui.bo!==t.open){D.ui.bo=t.open;save(1)}},true);
 render();
 if(D.ui.loc&&(!D.ui.wx||Date.now()-D.ui.wx.t>108e5))fetchWx();
