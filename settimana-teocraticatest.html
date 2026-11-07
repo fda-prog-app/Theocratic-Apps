@@ -48,6 +48,8 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .chp.on::before{content:"✓ "}
 .chp.prev{background:var(--ac2);color:var(--ac)}
 summary{cursor:pointer}
+details[open] .so{display:none}
+details:not([open]) .sc{display:none}
 .day h3{display:flex;justify-content:space-between;padding:4px 2px;color:var(--ac)}
 .day.today h3{color:var(--tx)}
 .day.today h3::after{content:"oggi";background:var(--hi);color:#16222e;border-radius:8px;padding:0 8px;font:600 .75rem/1.6 system-ui}
@@ -94,7 +96,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
-var VER="2026-11-07-4";
+var VER="2026-11-07-8";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},bib:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
@@ -145,13 +147,14 @@ for(c=1;c<=n;c++)co+='<option value="'+c+'"'+(c===first?" selected":"")+">Capito
 var sm=bibSum(day);
 return '<details id="bibd" class="card"'+(D.ui.bo?" open":"")+'><summary><b>Lettura quotidiana della Bibbia</b></summary><div class="row" style="margin-top:10px"><input id="bd" type="date" value="'+day+'" aria-label="Giorno di lettura"></div><div class="row"><select id="bb" aria-label="Libro">'+opts+'</select></div><p class="mu">'+(sm?"Letti il giorno scelto: "+esc(sm):"Nessun capitolo segnato per il giorno scelto.")+'</p><div class="chps">'+chips+'</div><p class="mu">'+BK[b][0]+": letti "+tot+" capitoli su "+n+". ✓ = letto nel giorno scelto; colore chiaro = già letto in un altro giorno.</p>"+'<div class="row"><select id="bcl" aria-label="Capitolo da leggere">'+co+'</select><button class="btn sec" data-a="bow">Leggi su wol.jw.org</button></div></details>'}
 function vAg(){
-var h='<h1>La mia settimana teocratica</h1><h2 style="margin-top:0">Cambia settimana</h2>';
+var h='<h1>La mia settimana teocratica</h1><h2 style="margin:28px 0 12px;text-align:center">Scegli la settimana</h2>';
 h+=wkNav();
+h+='<div class="row" style="margin:0 0 10px"><button class="btn sec" style="flex:1" data-a="toa">Apri tutto</button><button class="btn sec" style="flex:1" data-a="tca">Chiudi tutto</button></div>';
 h+=bibHtml();
 h+='<details id="apd" class="card"'+(D.ui.ao?" open":"")+'><summary><b>Inserisci appuntamento o attività</b></summary><div style="height:10px"></div><input id="tt" placeholder="Nuovo appuntamento" maxlength="120"><div class="row"><input id="ty" placeholder="Tipo di attività" maxlength="60"></div><div class="row"><select id="td">';
 for(var i=0;i<7;i++){var d=addD(wk,i);h+='<option value="'+fmt(d)+'"'+(fmt(d)===TODAY()?" selected":"")+'>'+esc(it(d,{weekday:"long",day:"numeric"}))+'</option>'}
 h+='</select><input id="tm" type="time" style="max-width:120px"></div><button class="btn full" data-a="add">Aggiungi</button></details>';
-h+='<details id="wkd" class="card"'+(D.ui.wo!==false?" open":"")+'><summary><b>Apri la settimana</b></summary><div style="height:10px"></div>';
+h+='<details id="wkd" class="card"'+(D.ui.wo!==false?" open":"")+'><summary><b><span class="so">Apri la settimana</span><span class="sc">Chiudi la settimana</span></b></summary><div style="height:10px"></div>';
 for(var j=0;j<7;j++){var dd=addD(wk,j),k=fmt(dd);
 var ts=D.tasks.filter(function(t){return t.day===k}).sort(function(a,b){return(a.time||"99").localeCompare(b.time||"99")});
 h+='<div class="day'+(k===TODAY()?" today":"")+'"><h3>'+esc(it(dd,{weekday:"long",day:"numeric",month:"short"}))+wxHtml(k)+'</h3>';
@@ -314,6 +317,7 @@ case"bc":var bk=(+D.ui.bb||0)+":"+v,bdy=bday||TODAY(),bar=D.bib[bdy]||[],bix=bar
 case"bow":window.open("https://wol.jw.org/it/wol/b/r6/lp-i/nwtsty/"+((+D.ui.bb||0)+1)+"/"+$("#bcl").value,"_blank");break;
 case"bwa":sendTxt("wa",bibText());break;
 case"bsx":sendTxt("sh",bibText());break;
+case"toa":case"tca":var op=a==="toa";D.ui.bo=D.ui.ao=D.ui.wo=op;save(1);document.querySelectorAll("#app > details").forEach(function(x){x.open=op});break;
 case"cl":$("#md").innerHTML="";break}}
 
 document.addEventListener("click",function(e){var t=e.target.closest("[data-a]");if(!t||t.type==="checkbox")return;act(t.dataset.a,t.dataset.v,t)});
