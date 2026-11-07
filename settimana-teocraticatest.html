@@ -94,7 +94,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
-var VER="2026-11-07-2";
+var VER="2026-11-07-4";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},bib:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
@@ -145,18 +145,20 @@ for(c=1;c<=n;c++)co+='<option value="'+c+'"'+(c===first?" selected":"")+">Capito
 var sm=bibSum(day);
 return '<details id="bibd" class="card"'+(D.ui.bo?" open":"")+'><summary><b>Lettura quotidiana della Bibbia</b></summary><div class="row" style="margin-top:10px"><input id="bd" type="date" value="'+day+'" aria-label="Giorno di lettura"></div><div class="row"><select id="bb" aria-label="Libro">'+opts+'</select></div><p class="mu">'+(sm?"Letti il giorno scelto: "+esc(sm):"Nessun capitolo segnato per il giorno scelto.")+'</p><div class="chps">'+chips+'</div><p class="mu">'+BK[b][0]+": letti "+tot+" capitoli su "+n+". ✓ = letto nel giorno scelto; colore chiaro = già letto in un altro giorno.</p>"+'<div class="row"><select id="bcl" aria-label="Capitolo da leggere">'+co+'</select><button class="btn sec" data-a="bow">Leggi su wol.jw.org</button></div></details>'}
 function vAg(){
-var h='<h1>La mia settimana teocratica</h1><p class="sub">Agenda della settimana</p><h2 style="margin-top:0">Inserisci qui tutti i tuoi appuntamenti e attività settimanali</h2>';
+var h='<h1>La mia settimana teocratica</h1><h2 style="margin-top:0">Cambia settimana</h2>';
 h+=wkNav();
-h+='<div class="card"><input id="tt" placeholder="Nuovo appuntamento" maxlength="120"><div class="row"><input id="ty" placeholder="Tipo di attività" maxlength="60"></div><div class="row"><select id="td">';
-for(var i=0;i<7;i++){var d=addD(wk,i);h+='<option value="'+fmt(d)+'"'+(fmt(d)===TODAY()?" selected":"")+'>'+esc(it(d,{weekday:"long",day:"numeric"}))+'</option>'}
-h+='</select><input id="tm" type="time" style="max-width:120px"></div><button class="btn full" data-a="add">Aggiungi</button></div>';
 h+=bibHtml();
+h+='<details id="apd" class="card"'+(D.ui.ao?" open":"")+'><summary><b>Inserisci appuntamento o attività</b></summary><div style="height:10px"></div><input id="tt" placeholder="Nuovo appuntamento" maxlength="120"><div class="row"><input id="ty" placeholder="Tipo di attività" maxlength="60"></div><div class="row"><select id="td">';
+for(var i=0;i<7;i++){var d=addD(wk,i);h+='<option value="'+fmt(d)+'"'+(fmt(d)===TODAY()?" selected":"")+'>'+esc(it(d,{weekday:"long",day:"numeric"}))+'</option>'}
+h+='</select><input id="tm" type="time" style="max-width:120px"></div><button class="btn full" data-a="add">Aggiungi</button></details>';
+h+='<details id="wkd" class="card"'+(D.ui.wo!==false?" open":"")+'><summary><b>Apri la settimana</b></summary><div style="height:10px"></div>';
 for(var j=0;j<7;j++){var dd=addD(wk,j),k=fmt(dd);
 var ts=D.tasks.filter(function(t){return t.day===k}).sort(function(a,b){return(a.time||"99").localeCompare(b.time||"99")});
 h+='<div class="day'+(k===TODAY()?" today":"")+'"><h3>'+esc(it(dd,{weekday:"long",day:"numeric",month:"short"}))+wxHtml(k)+'</h3>';
 if(!ts.length)h+='<div class="empty">Nessuna attività</div>';
 ts.forEach(function(t){h+='<div class="t'+(t.done?" done":"")+'"><input type="checkbox" data-a="tg" data-v="'+t.id+'"'+(t.done?" checked":"")+' aria-label="Completata"><span class="tx">'+(t.time?'<span class="tm">'+esc(t.time)+' </span>':"")+esc(t.text)+(t.type?'<span class="mu" style="display:block">'+esc(t.type)+'</span>':"")+'</span><button class="x" data-a="et" data-v="'+t.id+'" aria-label="Modifica">✎</button><button class="x" data-a="rm" data-v="'+t.id+'" aria-label="Elimina">×</button></div>'});
 h+='</div>'}
+h+='</details>';
 return h}
 
 function dayOpts(k,sv){var h='<option value="">Scegli il giorno</option>',m=parse(k);for(var i=0;i<7;i++){var d=addD(m,i),v=fmt(d);h+='<option value="'+v+'"'+(v===sv?' selected':'')+'>'+esc(it(d,{weekday:"long",day:"numeric",month:"long"}))+'</option>'}return h}
@@ -342,7 +344,8 @@ function chk(){lastChk=Date.now();if(navigator.onLine===false)return;fetch(locat
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&Date.now()-lastChk>6e5)chk()});
 chk();
 document.addEventListener("change",function(e){var t=e.target,st=$("#app").scrollTop;if(t.id==="bb"){D.ui.bb=+t.value;save(1)}else if(t.id==="bd"&&t.value){bday=t.value}else if(t.id==="rm"){var pv=$("#rmp");if(pv)pv.innerHTML=repPrev(t.value);return}else return;render();$("#app").scrollTop=st});
-document.addEventListener("toggle",function(e){var t=e.target;if(t.id==="bibd"&&!!D.ui.bo!==t.open){D.ui.bo=t.open;save(1)}},true);
+var TG={bibd:"bo",apd:"ao",wkd:"wo"};
+document.addEventListener("toggle",function(e){var t=e.target,k=TG[t.id];if(k&&D.ui[k]!==t.open){D.ui[k]=t.open;save(1)}},true);
 render();
 if(D.ui.loc&&(!D.ui.wx||Date.now()-D.ui.wx.t>108e5))fetchWx();
 if(location.hash==="#aggiungi"&&!standalone())setTimeout(showInstall,400);else if(!standalone()&&!D.ui.installShown)setTimeout(function(){if(!D.ui.installShown)showInstall()},700);
