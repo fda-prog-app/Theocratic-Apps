@@ -100,7 +100,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
-var VER="2026-11-07-10";
+var VER="2026-11-07-13";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},bib:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
@@ -149,16 +149,16 @@ if(!first)first=1;
 for(i=0;i<66;i++){if(i===0)opts+='<optgroup label="Scritture Ebraico-Aramaiche">';if(i===39)opts+='</optgroup><optgroup label="Scritture Greche Cristiane">';opts+='<option value="'+i+'"'+(i===b?" selected":"")+">"+BK[i][0]+"</option>"}opts+="</optgroup>";
 for(c=1;c<=n;c++)co+='<option value="'+c+'"'+(c===first?" selected":"")+">Capitolo "+c+"</option>";
 var sm=bibSum(day);
-return '<details id="bibd" class="card"'+(D.ui.bo?" open":"")+'><summary><b>Lettura quotidiana della Bibbia</b></summary><div class="row" style="margin-top:10px"><input id="bd" type="date" value="'+day+'" aria-label="Giorno di lettura"></div><div class="row"><select id="bb" aria-label="Libro">'+opts+'</select></div><p class="mu">'+(sm?"Letti il giorno scelto: "+esc(sm):"Nessun capitolo segnato per il giorno scelto.")+'</p><div class="chps">'+chips+'</div><p class="mu">'+BK[b][0]+": letti "+tot+" capitoli su "+n+". ✓ = letto nel giorno scelto; colore chiaro = già letto in un altro giorno.</p>"+'<div class="row"><select id="bcl" aria-label="Capitolo da leggere">'+co+'</select><button class="btn sec" data-a="bow">Leggi su wol.jw.org</button></div></details>'}
+return '<details id="bibd" class="card"'+(D.ui.bo?" open":"")+'><summary><b><span aria-hidden="true">📖</span> Lettura quotidiana della Bibbia</b></summary><div class="row" style="margin-top:10px"><input id="bd" type="date" value="'+day+'" aria-label="Giorno di lettura"></div><div class="row"><select id="bb" aria-label="Libro">'+opts+'</select></div><p class="mu">'+(sm?"Letti il giorno scelto: "+esc(sm):"Nessun capitolo segnato per il giorno scelto.")+'</p><div class="chps">'+chips+'</div><p class="mu">'+BK[b][0]+": letti "+tot+" capitoli su "+n+". ✓ = letto nel giorno scelto; colore chiaro = già letto in un altro giorno.</p>"+'<div class="row"><select id="bcl" aria-label="Capitolo da leggere">'+co+'</select><button class="btn sec" data-a="bow">Leggi su wol.jw.org</button></div></details>'}
 function vAg(){
 var h='<h1>La mia settimana teocratica</h1><h2 style="margin:28px 0 12px;text-align:center">Scegli la settimana</h2>';
 h+=wkNav();
 h+='<div class="row" style="margin:0 0 10px"><button class="btn sec" style="flex:1" data-a="toa">Apri tutto</button><button class="btn sec" style="flex:1" data-a="tca">Chiudi tutto</button></div>';
 h+=bibHtml();
-h+='<details id="apd" class="card"'+(D.ui.ao?" open":"")+'><summary><b>Inserisci appuntamento o attività</b></summary><div style="height:10px"></div><input id="tt" placeholder="Nuovo appuntamento" maxlength="120"><div class="row"><input id="ty" placeholder="Tipo di attività" maxlength="60"></div><div class="row"><select id="td">';
+h+='<details id="apd" class="card"'+(D.ui.ao?" open":"")+'><summary><b><span aria-hidden="true">🖊️</span> Inserisci appuntamento o attività</b></summary><div style="height:10px"></div><input id="tt" placeholder="Nuovo appuntamento" maxlength="120"><div class="row"><input id="ty" placeholder="Tipo di attività" maxlength="60"></div><div class="row"><select id="td">';
 for(var i=0;i<7;i++){var d=addD(wk,i);h+='<option value="'+fmt(d)+'"'+(fmt(d)===TODAY()?" selected":"")+'>'+esc(it(d,{weekday:"long",day:"numeric"}))+'</option>'}
 h+='</select><input id="tm" type="time" style="max-width:120px"></div><button class="btn full" data-a="add">Aggiungi</button></details>';
-h+='<details id="wkd" class="card"'+(D.ui.wo!==false?" open":"")+'><summary><b><span class="so">Apri la settimana</span><span class="sc">Chiudi la settimana</span></b></summary><div style="height:10px"></div>';
+h+='<details id="wkd" class="card"'+(D.ui.wo!==false?" open":"")+'><summary><b><span class="so"><span aria-hidden="true">📁</span> Apri la settimana</span><span class="sc"><span aria-hidden="true">📂</span> Chiudi la settimana</span></b></summary><div style="height:10px"></div>';
 for(var j=0;j<7;j++){var dd=addD(wk,j),k=fmt(dd);
 var ts=D.tasks.filter(function(t){return t.day===k}).sort(function(a,b){return(a.time||"99").localeCompare(b.time||"99")});
 h+='<div class="day'+(k===TODAY()?" today":"")+'"><h3>'+esc(it(dd,{weekday:"long",day:"numeric",month:"short"}))+wxHtml(k)+'</h3>';
