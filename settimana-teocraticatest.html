@@ -48,6 +48,8 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .chp.on::before{content:"✓ "}
 .chp.prev{background:var(--ac2);color:var(--ac)}
 summary{cursor:pointer}
+details,details *{box-sizing:border-box}
+details>*{max-width:100%}
 details[open] .so{display:none}
 details:not([open]) .sc{display:none}
 .day h3{display:flex;justify-content:space-between;padding:4px 2px;color:var(--ac)}
@@ -98,7 +100,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
-var VER="2026-11-07-9";
+var VER="2026-11-07-10";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},bib:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
