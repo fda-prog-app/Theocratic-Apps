@@ -54,7 +54,9 @@ details:not([open]) .sc{display:none}
 .day.today h3{color:var(--tx)}
 .day.today h3::after{content:"oggi";background:var(--hi);color:#16222e;border-radius:8px;padding:0 8px;font:600 .75rem/1.6 system-ui}
 .t{display:flex;align-items:center;gap:10px;padding:9px 10px;background:var(--card);border:1px solid var(--bd);border-radius:10px;margin-bottom:6px}
-.t input[type=checkbox]{width:22px;height:22px;flex:none;accent-color:var(--ac)}
+.t input[type=checkbox]{-webkit-appearance:none;appearance:none;box-sizing:border-box;width:24px;height:24px;min-width:24px;max-width:24px;padding:0;margin:0;flex:none;border:2px solid var(--ac);border-radius:7px;background:var(--card);display:grid;place-content:center}
+.t input[type=checkbox]:checked{background:var(--ac)}
+.t input[type=checkbox]:checked::after{content:"✓";color:var(--bg);font:700 16px/1 system-ui}
 .t.done .tx{text-decoration:line-through;color:var(--mu)}
 .tx{flex:1;overflow-wrap:anywhere}
 .tm{color:var(--mu);font-size:.85rem}
@@ -96,7 +98,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
-var VER="2026-11-07-8";
+var VER="2026-11-07-9";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},bib:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
