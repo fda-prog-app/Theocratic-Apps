@@ -101,7 +101,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
-var VER="2026-11-07-14";
+var VER="2026-11-07-15";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},bib:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
@@ -215,7 +215,8 @@ else if(navigator.clipboard)navigator.clipboard.writeText(t).then(function(){toa
 else toast("Condivisione non disponibile")}
 function showDay(){var s=D.sv[sel]||{},mn=(s.h||0)*60+(s.m||0),cr=Math.round((s.c||0)*60),st=s.st||[];
 function r(l,v){return '<div style="display:flex;justify-content:space-between;padding:4px 0"><span>'+l+"</span><span>"+v+"</span></div>"}
-$("#md").innerHTML='<div class="ov"><div class="sh" role="dialog" aria-modal="true"><h2 style="margin-top:0">'+esc(it(parse(sel),{weekday:"long",day:"numeric",month:"long"}))+'</h2><h3>Servizio del giorno</h3>'+((!mn&&!cr&&!st.length)?'<div class="empty">Nessun servizio segnato per questo giorno.</div>':r("Ore di servizio",fmtM(mn))+r("Ore di credito",fmtM(cr)+(s.ct?" ("+esc(s.ct)+")":""))+r("Studi",st.length?esc(st.join(", ")):"Nessuno"))+'<div class="card" style="margin-top:12px">'+totHtml(1)+'</div><button class="btn full" data-a="cl">Chiudi</button></div></div>'}
+var tl=D.tasks.filter(function(t){return t.day===sel}).sort(function(a,b){return (a.time||"").localeCompare(b.time||"")}),ac=tl.length?tl.map(function(t){return '<div style="padding:6px 0;border-top:1px solid var(--bd)"><b>'+(t.time?esc(t.time)+" ":"")+"</b>"+esc(t.text)+(t.done?" ✓":"")+(t.type?'<span class="mu" style="display:block">'+esc(t.type)+"</span>":"")+"</div>"}).join(""):'<div class="empty">Nessuna attività in agenda per questo giorno.</div>';
+$("#md").innerHTML='<div class="ov"><div class="sh" role="dialog" aria-modal="true"><h2 style="margin-top:0">'+esc(it(parse(sel),{weekday:"long",day:"numeric",month:"long"}))+'</h2><h3>Servizio del giorno</h3>'+((!mn&&!cr&&!st.length)?'<div class="empty">Nessun servizio segnato per questo giorno.</div>':r("Ore di servizio",fmtM(mn))+r("Ore di credito",fmtM(cr)+(s.ct?" ("+esc(s.ct)+")":""))+r("Studi",st.length?esc(st.join(", ")):"Nessuno"))+'<h3 style="margin-top:14px">Attività del giorno</h3>'+ac+'<button class="btn full" style="margin-top:12px" data-a="cl">Chiudi</button></div></div>'}
 function stForm(s){var l=s.st||[],o='<option value="">Scegli uno studente</option>';
 D.stu.forEach(function(n){o+='<option>'+esc(n)+'</option>'});
 var h='<div class="card"><h3>Studi del giorno</h3>';
