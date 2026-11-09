@@ -101,7 +101,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
-var VER="2026-11-07-15";
+var VER="2026-11-09-1";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},bib:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
@@ -143,6 +143,8 @@ var BK=[["Genesi",50],["Esodo",40],["Levitico",27],["Numeri",36],["Deuteronomio"
 var bday=null;
 function bibRange(a){a.sort(function(x,y){return x-y});var o=[],s=a[0],p=a[0];for(var i=1;i<=a.length;i++){if(a[i]===p+1){p=a[i];continue}o.push(s===p?""+s:s+"-"+p);s=a[i];p=a[i]}return o.join(", ")}
 function bibSum(day){var m={};(D.bib[day]||[]).forEach(function(k){var q=k.split(":");(m[q[0]]=m[q[0]]||[]).push(+q[1])});return Object.keys(m).sort(function(a,b){return a-b}).map(function(b){return BK[b][0]+" "+bibRange(m[b])}).join("; ")}
+function bibLast(){var t=TODAY(),ks=Object.keys(D.bib).filter(function(k){return(D.bib[k]||[]).length}).sort();if(!ks.length)return"";var q=ks.filter(function(k){return k<=t}),l=q.length?q[q.length-1]:ks[ks.length-1],n=Math.round((parse(t)-parse(l))/864e5);return it(parse(l),{weekday:"long",day:"numeric",month:"long",year:"numeric"})+(n===0?" (oggi)":n===1?" (ieri)":n>1?" ("+n+" giorni fa)":"")}
+function bibDays(){var yr=new Date().getFullYear(),diy=((yr%4===0&&yr%100!==0)||yr%400===0)?366:365,mc=[],n=0,i;for(i=0;i<12;i++)mc.push(0);for(var k in D.bib){if((D.bib[k]||[]).length&&k.slice(0,4)===""+yr){mc[+k.slice(5,7)-1]++;n++}}return{yr:yr,diy:diy,n:n,mc:mc}}
 function bibHtml(){var day=bday||TODAY(),b=+D.ui.bb||0;if(b<0||b>65)b=0;var n=BK[b][1],cur={},oth={},tot=0,chips="",first=0,opts="",co="",c,i;
 for(var d in D.bib)(D.bib[d]||[]).forEach(function(k){if(d===day)cur[k]=1;else oth[k]=1});
 for(c=1;c<=n;c++){var k=b+":"+c,on=cur[k],pv=!on&&oth[k];if(on||pv)tot++;if(!first&&!on&&!pv)first=c;chips+='<button class="chp'+(on?" on":pv?" prev":"")+'" data-a="bc" data-v="'+c+'" aria-pressed="'+(on?"true":"false")+'">'+c+"</button>"}
@@ -150,7 +152,7 @@ if(!first)first=1;
 for(i=0;i<66;i++){if(i===0)opts+='<optgroup label="Scritture Ebraico-Aramaiche">';if(i===39)opts+='</optgroup><optgroup label="Scritture Greche Cristiane">';opts+='<option value="'+i+'"'+(i===b?" selected":"")+">"+BK[i][0]+"</option>"}opts+="</optgroup>";
 for(c=1;c<=n;c++)co+='<option value="'+c+'"'+(c===first?" selected":"")+">Capitolo "+c+"</option>";
 var sm=bibSum(day);
-return '<details id="bibd" class="card"'+(D.ui.bo?" open":"")+'><summary><b><span aria-hidden="true">📖</span> Lettura quotidiana della Bibbia</b></summary><div class="row" style="margin-top:10px"><input id="bd" type="date" value="'+day+'" aria-label="Giorno di lettura"></div><div class="row"><select id="bb" aria-label="Libro">'+opts+'</select></div><p class="mu">'+(sm?"Letti il giorno scelto: "+esc(sm):"Nessun capitolo segnato per il giorno scelto.")+'</p><div class="chps">'+chips+'</div><p class="mu">'+BK[b][0]+": letti "+tot+" capitoli su "+n+". ✓ = letto nel giorno scelto; colore chiaro = già letto in un altro giorno.</p>"+'<div class="row"><select id="bcl" aria-label="Capitolo da leggere">'+co+'</select><button class="btn sec" data-a="bow">Leggi su wol.jw.org</button></div></details>'}
+return '<details id="bibd" class="card"'+(D.ui.bo?" open":"")+'><summary><b><span aria-hidden="true">📖</span> Lettura quotidiana della Bibbia</b></summary><div class="row" style="margin-top:10px"><input id="bd" type="date" value="'+day+'" aria-label="Giorno di lettura"></div><div class="row"><select id="bb" aria-label="Libro">'+opts+'</select></div><p class="mu">'+(sm?"Letti il giorno scelto: "+esc(sm):"Nessun capitolo segnato per il giorno scelto.")+'</p><p class="mu">'+(bibLast()?'Ultimo giorno di lettura della Bibbia: <b>'+esc(bibLast())+'</b>.':'Non hai ancora segnato nessuna lettura della Bibbia.')+'</p><div class="chps">'+chips+'</div><p class="mu">'+BK[b][0]+": letti "+tot+" capitoli su "+n+". ✓ = letto nel giorno scelto; colore chiaro = già letto in un altro giorno.</p>"+'<div class="row"><select id="bcl" aria-label="Capitolo da leggere">'+co+'</select><button class="btn sec" data-a="bow">Leggi su wol.jw.org</button></div></details>'}
 function vAg(){
 var h='<h1>La mia settimana teocratica</h1><h2 style="margin:28px 0 12px;text-align:center">Scegli la settimana</h2>';
 h+=wkNav();
@@ -196,14 +198,16 @@ for(var d in D.bib)(D.bib[d]||[]).forEach(function(k){seen[k]=1});
 Object.keys(seen).forEach(function(k){var b=+k.split(":")[0];if(b>=0&&b<66){per[b]++;tot++}});
 for(i=0;i<66;i++){if(per[i]>=BK[i][1])done.push(i);else if(per[i]>0)part.push(i)}
 return{per:per,tot:tot,done:done,part:part}}
-function bibText(){var g=bibProg(),pc=(Math.round(g.tot/11.89)/10).toString().replace(".",",");
+function bibText(){var g=bibProg(),pc=(Math.round(g.tot*1000/1189)/10).toString().replace(".",",");
 var t="Lettura della Bibbia - progressivo al "+it(new Date(),{day:"numeric",month:"long",year:"numeric"})+"\nCapitoli letti: "+g.tot+" su 1189 ("+pc+"%)\nLibri completati: "+g.done.length+" su 66"+(g.done.length?" ("+g.done.map(function(i){return BK[i][0]}).join(", ")+")":"")+"\nLibri iniziati: "+g.part.length;
-if(g.part.length)t+="\nIn corso: "+g.part.map(function(i){return BK[i][0]+" "+g.per[i]+"/"+BK[i][1]}).join(", ");return t}
+var dyy=bibDays(),ll=bibLast();t+="\nGiorni di lettura nel "+dyy.yr+": "+dyy.n+" su "+dyy.diy;if(ll)t+="\nUltima lettura: "+ll;if(g.part.length)t+="\nIn corso: "+g.part.map(function(i){return BK[i][0]+" "+g.per[i]+"/"+BK[i][1]}).join(", ");return t}
 function sendTxt(mode,t){if(mode==="wa")window.open("https://wa.me/?text="+encodeURIComponent(t),"_blank");else if(navigator.share)navigator.share({text:t}).catch(function(){});else if(navigator.clipboard)navigator.clipboard.writeText(t).then(function(){toast("Testo copiato")});else toast("Condivisione non disponibile")}
-function bibRepHtml(){var g=bibProg();
+function bibRepHtml(){var g=bibProg(),dy=bibDays(),nm=new Date().getMonth(),mdet="";
+for(var mi=0;mi<=nm;mi++){var mm=it(new Date(dy.yr,mi,1),{month:"long"});mdet+='<div style="display:flex;justify-content:space-between;padding:3px 0"><span>'+mm.charAt(0).toUpperCase()+mm.slice(1)+"</span><b>"+dy.mc[mi]+" su "+new Date(dy.yr,mi+1,0).getDate()+"</b></div>"}
+mdet='<details style="margin-top:8px"><summary>Giorni di lettura mese per mese</summary>'+mdet+"</details>";
 function r(l,v){return '<div style="display:flex;justify-content:space-between;padding:3px 0"><span>'+l+"</span><b>"+v+"</b></div>"}
 var all=g.done.concat(g.part).sort(function(a,b){return a-b}),det=all.map(function(i){return r(BK[i][0],g.per[i]+"/"+BK[i][1]+(g.per[i]>=BK[i][1]?" ✓":""))}).join("");
-return '<div class="card"><h3>Lettura della Bibbia</h3><p class="mu">Progressivo di tutti i capitoli segnati come letti finora.</p>'+r("Capitoli letti",g.tot+" su 1189")+r("Libri completati",g.done.length+" su 66")+r("Libri iniziati",g.part.length)+(all.length?'<details style="margin-top:8px"><summary>Dettaglio per libro</summary>'+det+"</details>":"")+'<div class="row" style="margin-top:10px"><button class="btn sec" style="flex:1" data-a="bwa">WhatsApp</button><button class="btn sec" style="flex:1" data-a="bsx">Condividi</button></div></div>'}
+return '<div class="card"><h3>Lettura della Bibbia</h3><p class="mu">Progressivo di tutti i capitoli segnati come letti finora.</p>'+r("Capitoli letti",g.tot+" su 1189")+r("Libri completati",g.done.length+" su 66")+r("Libri iniziati",g.part.length)+r("Giorni di lettura nel "+dy.yr,dy.n+" su "+dy.diy)+(bibLast()?'<p class="mu" style="margin:6px 0 0">Ultimo giorno di lettura: '+esc(bibLast())+".</p>":"")+mdet+(all.length?'<details style="margin-top:8px"><summary>Dettaglio per libro</summary>'+det+"</details>":"")+'<div class="row" style="margin-top:10px"><button class="btn sec" style="flex:1" data-a="bwa">WhatsApp</button><button class="btn sec" style="flex:1" data-a="bsx">Condividi</button></div></div>'}
 function repHtml(){var n=new Date(),o="";for(var i=0;i<12;i++){var d=new Date(n.getFullYear(),n.getMonth()-i,1);o+='<option value="'+d.getFullYear()+"-"+pad(d.getMonth()+1)+'">'+esc(it(d,{month:"long",year:"numeric"}))+(i?"":" (in corso)")+"</option>"}
 return '<div class="card"><h3>Invia il rapporto del mese</h3><p class="mu">Manda su WhatsApp o condividi il totale del mese: ore di servizio, ore di credito e studi.</p><label class="fl"><span>Mese</span><select id="rm">'+o+'</select></label><div id="rmp">'+repPrev(fmt(n).slice(0,7))+'</div><div class="row"><button class="btn sec" style="flex:1" data-a="rwa">WhatsApp</button><button class="btn sec" style="flex:1" data-a="rsx">Condividi</button></div></div>'}
 function sendRep(mode,p,force){var a=p.split("-"),y=+a[0],m=+a[1]-1;
@@ -358,7 +362,7 @@ document.addEventListener("visibilitychange",function(){if(document.visibilitySt
 chk();
 document.addEventListener("change",function(e){var t=e.target,st=$("#app").scrollTop;if(t.id==="bb"){D.ui.bb=+t.value;save(1)}else if(t.id==="bd"&&t.value){bday=t.value}else if(t.id==="rm"){var pv=$("#rmp");if(pv)pv.innerHTML=repPrev(t.value);return}else return;render();$("#app").scrollTop=st});
 var TG={bibd:"bo",apd:"ao",wkd:"wo",mod:"rmo",svd:"rso",ntd:"rno"};
-document.addEventListener("toggle",function(e){var t=e.target,k=TG[t.id];if(k&&D.ui[k]!==t.open){D.ui[k]=t.open;save(1)}if(t.open)growAll()},true);
+document.addEventListener("toggle",function(e){var t=e.target,k=TG[t.id];if(k&&D.ui[k]!==t.open){D.ui[k]=t.open;save(1)}if(k==="bo"&&t.open&&bday&&bday!==TODAY()){bday=null;var sc=$("#app").scrollTop;render();$("#app").scrollTop=sc;return}if(t.open)growAll()},true);
 render();
 if(D.ui.loc&&(!D.ui.wx||Date.now()-D.ui.wx.t>108e5))fetchWx();
 if(location.hash==="#aggiungi"&&!standalone())setTimeout(showInstall,400);else if(!standalone()&&!D.ui.installShown)setTimeout(function(){if(!D.ui.installShown)showInstall()},700);
