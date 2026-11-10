@@ -48,6 +48,7 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid v
 .chp.on::before{content:"✓ "}
 .chp.prev{background:var(--ac2);color:var(--ac)}
 summary{cursor:pointer}
+.lkb{display:inline-block;padding:4px 10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--ac);font-size:.8rem;text-decoration:none}
 details,details *{box-sizing:border-box}
 details>*{max-width:100%}
 details .card{border:0;padding:0;background:none;margin:12px 0 0}
@@ -101,7 +102,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
-var VER="2026-11-09-2";
+var VER="2026-11-09-4";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},bib:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
@@ -143,6 +144,7 @@ var BK=[["Genesi",50],["Esodo",40],["Levitico",27],["Numeri",36],["Deuteronomio"
 var bday=null;
 function bibRange(a){a.sort(function(x,y){return x-y});var o=[],s=a[0],p=a[0];for(var i=1;i<=a.length;i++){if(a[i]===p+1){p=a[i];continue}o.push(s===p?""+s:s+"-"+p);s=a[i];p=a[i]}return o.join(", ")}
 function bibSum(day){var m={};(D.bib[day]||[]).forEach(function(k){var q=k.split(":");(m[q[0]]=m[q[0]]||[]).push(+q[1])});return Object.keys(m).sort(function(a,b){return a-b}).map(function(b){return BK[b][0]+" "+bibRange(m[b])}).join("; ")}
+function mapsUrl(q){return"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q)}
 function bibLast(){var t=TODAY(),ks=Object.keys(D.bib).filter(function(k){return(D.bib[k]||[]).length}).sort();if(!ks.length)return"";var q=ks.filter(function(k){return k<=t}),l=q.length?q[q.length-1]:ks[ks.length-1],n=Math.round((parse(t)-parse(l))/864e5);return it(parse(l),{weekday:"long",day:"numeric",month:"long",year:"numeric"})+(n===0?" (oggi)":n===1?" (ieri)":n>1?" ("+n+" giorni fa)":"")}
 function bibDays(){var yr=new Date().getFullYear(),diy=((yr%4===0&&yr%100!==0)||yr%400===0)?366:365,mc=[],n=0,i;for(i=0;i<12;i++)mc.push(0);for(var k in D.bib){if((D.bib[k]||[]).length&&k.slice(0,4)===""+yr){mc[+k.slice(5,7)-1]++;n++}}return{yr:yr,diy:diy,n:n,mc:mc}}
 function bibHtml(){var day=bday||TODAY(),b=+D.ui.bb||0;if(b<0||b>65)b=0;var n=BK[b][1],cur={},oth={},tot=0,chips="",first=0,opts="",co="",c,i;
@@ -158,7 +160,7 @@ var h='<h1>La mia settimana teocratica</h1><h2 style="margin:28px 0 12px;text-al
 h+=wkNav();
 h+='<div class="row" style="margin:0 0 10px"><button class="btn sec" style="flex:1" data-a="toa">Apri tutto</button><button class="btn sec" style="flex:1" data-a="tca">Chiudi tutto</button></div>';
 h+=bibHtml();
-h+='<details id="apd" class="card"'+(D.ui.ao?" open":"")+'><summary><b><span aria-hidden="true">🖊️</span> Inserisci appuntamento o attività</b></summary><div style="height:10px"></div><input id="tt" placeholder="Nuovo appuntamento" maxlength="120"><div class="row"><input id="ty" placeholder="Tipo di attività" maxlength="60"></div><div class="row"><select id="td">';
+h+='<details id="apd" class="card"'+(D.ui.ao?" open":"")+'><summary><b><span aria-hidden="true">🖊️</span> Inserisci appuntamento o attività</b></summary><div style="height:10px"></div><input id="tt" placeholder="Nuovo appuntamento" maxlength="120"><div class="row"><input id="ty" placeholder="Tipo di attività" maxlength="60"></div><div class="row"><input id="tl" placeholder="Luogo (indirizzo o nome del posto)" maxlength="120" autocomplete="off"></div><div class="row"><select id="td">';
 for(var i=0;i<7;i++){var d=addD(wk,i);h+='<option value="'+fmt(d)+'"'+(fmt(d)===TODAY()?" selected":"")+'>'+esc(it(d,{weekday:"long",day:"numeric"}))+'</option>'}
 h+='</select><input id="tm" type="time" style="max-width:120px"></div><button class="btn full" data-a="add">Aggiungi</button></details>';
 h+='<details id="wkd" class="card"'+(D.ui.wo!==false?" open":"")+'><summary><b><span class="so"><span aria-hidden="true">📁</span> Apri la settimana</span><span class="sc"><span aria-hidden="true">📂</span> Chiudi la settimana</span></b></summary><div style="height:10px"></div>';
@@ -166,7 +168,7 @@ for(var j=0;j<7;j++){var dd=addD(wk,j),k=fmt(dd);
 var ts=D.tasks.filter(function(t){return t.day===k}).sort(function(a,b){return(a.time||"99").localeCompare(b.time||"99")});
 h+='<div class="day'+(k===TODAY()?" today":"")+'"><h3>'+esc(it(dd,{weekday:"long",day:"numeric",month:"short"}))+wxHtml(k)+'</h3>';
 if(!ts.length)h+='<div class="empty">Nessuna attività</div>';
-ts.forEach(function(t){h+='<div class="t'+(t.done?" done":"")+'"><input type="checkbox" data-a="tg" data-v="'+t.id+'"'+(t.done?" checked":"")+' aria-label="Completata"><span class="tx">'+(t.time?'<span class="tm">'+esc(t.time)+' </span>':"")+esc(t.text)+(t.type?'<span class="mu" style="display:block">'+esc(t.type)+'</span>':"")+'</span><button class="x" data-a="et" data-v="'+t.id+'" aria-label="Modifica">✎</button><button class="x" data-a="rm" data-v="'+t.id+'" aria-label="Elimina">×</button></div>'});
+ts.forEach(function(t){h+='<div class="t'+(t.done?" done":"")+'"><input type="checkbox" data-a="tg" data-v="'+t.id+'"'+(t.done?" checked":"")+' aria-label="Completata"><span class="tx">'+(t.time?'<span class="tm">'+esc(t.time)+' </span>':"")+esc(t.text)+(t.type?'<span class="mu" style="display:block">'+esc(t.type)+'</span>':"")+(t.loc?'<span class="mu" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:2px"><span>📍 '+esc(t.loc)+'</span><a class="lkb" href="'+esc(mapsUrl(t.loc))+'" target="_blank" rel="noopener">Cerca su Google Maps</a></span>':"")+'</span><button class="x" data-a="et" data-v="'+t.id+'" aria-label="Modifica">✎</button><button class="x" data-a="rm" data-v="'+t.id+'" aria-label="Elimina">×</button></div>'});
 h+='</div>'}
 h+='</details>';
 return h}
@@ -219,7 +221,7 @@ else if(navigator.clipboard)navigator.clipboard.writeText(t).then(function(){toa
 else toast("Condivisione non disponibile")}
 function showDay(){var s=D.sv[sel]||{},mn=(s.h||0)*60+(s.m||0),cr=Math.round((s.c||0)*60),st=s.st||[];
 function r(l,v){return '<div style="display:flex;justify-content:space-between;padding:4px 0"><span>'+l+"</span><span>"+v+"</span></div>"}
-var tl=D.tasks.filter(function(t){return t.day===sel}).sort(function(a,b){return (a.time||"").localeCompare(b.time||"")}),ac=tl.length?tl.map(function(t){return '<div style="padding:6px 0;border-top:1px solid var(--bd)"><b>'+(t.time?esc(t.time)+" ":"")+"</b>"+esc(t.text)+(t.done?" ✓":"")+(t.type?'<span class="mu" style="display:block">'+esc(t.type)+"</span>":"")+"</div>"}).join(""):'<div class="empty">Nessuna attività in agenda per questo giorno.</div>';
+var tl=D.tasks.filter(function(t){return t.day===sel}).sort(function(a,b){return (a.time||"").localeCompare(b.time||"")}),ac=tl.length?tl.map(function(t){return '<div style="padding:6px 0;border-top:1px solid var(--bd)"><b>'+(t.time?esc(t.time)+" ":"")+"</b>"+esc(t.text)+(t.done?" ✓":"")+(t.type?'<span class="mu" style="display:block">'+esc(t.type)+"</span>":"")+(t.loc?'<span class="mu" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:2px"><span>📍 '+esc(t.loc)+'</span><a class="lkb" href="'+esc(mapsUrl(t.loc))+'" target="_blank" rel="noopener">Cerca su Google Maps</a></span>':"")+"</div>"}).join(""):'<div class="empty">Nessuna attività in agenda per questo giorno.</div>';
 $("#md").innerHTML='<div class="ov"><div class="sh" role="dialog" aria-modal="true"><h2 style="margin-top:0">'+esc(it(parse(sel),{weekday:"long",day:"numeric",month:"long"}))+'</h2><h3>Servizio del giorno</h3>'+((!mn&&!cr&&!st.length)?'<div class="empty">Nessun servizio segnato per questo giorno.</div>':r("Ore di servizio",fmtM(mn))+r("Ore di credito",fmtM(cr)+(s.ct?" ("+esc(s.ct)+")":""))+r("Studi",st.length?esc(st.join(", ")):"Nessuno"))+'<h3 style="margin-top:14px">Attività del giorno</h3>'+ac+'<button class="btn full" style="margin-top:12px" data-a="cl">Chiudi</button></div></div>'}
 function stForm(s){var l=s.st||[],o='<option value="">Scegli uno studente</option>';
 D.stu.forEach(function(n){o+='<option>'+esc(n)+'</option>'});
@@ -290,7 +292,7 @@ $("#md").innerHTML='<div class="ov"><div class="sh" role="dialog" aria-modal="tr
 D.ui.installShown=true;save(1)}
 
 function showEdit(id){var t=D.tasks.filter(function(x){return x.id===id})[0];if(!t)return;
-$("#md").innerHTML='<div class="ov"><div class="sh" role="dialog" aria-modal="true"><h2 style="margin-top:0">Modifica appuntamento</h2><input id="et1" maxlength="120" value="'+esc(t.text)+'" placeholder="Nuovo appuntamento"><div class="row"><input id="et2" maxlength="60" value="'+esc(t.type||"")+'" placeholder="Tipo di attività"></div><div class="row"><input id="et3" type="date" value="'+esc(t.day)+'"><input id="et4" type="time" value="'+esc(t.time||"")+'" style="max-width:130px"></div><div class="row"><button class="btn sec" style="flex:1" data-a="cl">Annulla</button><button class="btn" style="flex:1" data-a="se" data-v="'+esc(id)+'">Salva modifiche</button></div></div></div>'}
+$("#md").innerHTML='<div class="ov"><div class="sh" role="dialog" aria-modal="true"><h2 style="margin-top:0">Modifica appuntamento</h2><input id="et1" maxlength="120" value="'+esc(t.text)+'" placeholder="Nuovo appuntamento"><div class="row"><input id="et2" maxlength="60" value="'+esc(t.type||"")+'" placeholder="Tipo di attività"></div><div class="row"><input id="et6" maxlength="120" value="'+esc(t.loc||"")+'" placeholder="Luogo (indirizzo o nome del posto)" autocomplete="off"></div><div class="row"><input id="et3" type="date" value="'+esc(t.day)+'"><input id="et4" type="time" value="'+esc(t.time||"")+'" style="max-width:130px"></div><div class="row"><button class="btn sec" style="flex:1" data-a="cl">Annulla</button><button class="btn" style="flex:1" data-a="se" data-v="'+esc(id)+'">Salva modifiche</button></div></div></div>'}
 function act(a,v,el){
 switch(a){
 case"go":tab=v;render();$("#app").scrollTop=0;break;
@@ -299,7 +301,7 @@ case"wn":wk=addD(wk,7);render();break;
 case"mp":mo=new Date(mo.getFullYear(),mo.getMonth()-1,1);render();break;
 case"mn":mo=new Date(mo.getFullYear(),mo.getMonth()+1,1);render();break;
 case"sd":sel=v;var d=parse(v);if(d.getMonth()!==mo.getMonth())mo=new Date(d.getFullYear(),d.getMonth(),1);render();showDay();break;
-case"add":var t=$("#tt").value.trim();if(!t){toast("Scrivi prima l’appuntamento");return}D.tasks.push({id:"t"+Date.now(),day:$("#td").value,time:$("#tm").value,type:$("#ty").value.trim(),text:t,done:false});save();render();break;
+case"add":var t=$("#tt").value.trim();if(!t){toast("Scrivi prima l’appuntamento");return}D.tasks.push({id:"t"+Date.now(),day:$("#td").value,time:$("#tm").value,type:$("#ty").value.trim(),loc:$("#tl").value.trim(),text:t,done:false});save();render();break;
 case"tg":D.tasks.forEach(function(x){if(x.id===v)x.done=el.checked});save();render();break;
 case"rm":D.tasks=D.tasks.filter(function(x){return x.id!==v});save();render();break;
 case"at":var n=$("#nt").value.trim();if(!n){toast("Scrivi prima lo spunto");return}D.tips.push({id:"p"+Date.now(),text:n});save();render();break;
@@ -311,7 +313,7 @@ var so=D.sv[sel]||{};so.st=(so.st||[]).concat(nm);D.sv[sel]=so;save();render();b
 case"rst":var q=D.sv[sel];if(q&&q.st){q.st.splice(+v,1);if(!q.st.length)delete q.st;if(!Object.keys(q).length)delete D.sv[sel];save();render()}break;
 case"et":showEdit(v);break;
 case"se":var tx=$("#et1").value.trim();if(!tx){toast("Scrivi prima l’appuntamento");return}var dy=$("#et3").value;if(!dy){toast("Scegli la data");return}
-D.tasks.forEach(function(x){if(x.id===v){x.text=tx;x.type=$("#et2").value.trim();x.day=dy;x.time=$("#et4").value}});save();$("#md").innerHTML="";wk=mon(parse(dy));render();toast("Appuntamento modificato");break;
+D.tasks.forEach(function(x){if(x.id===v){x.text=tx;x.type=$("#et2").value.trim();x.loc=$("#et6").value.trim();x.day=dy;x.time=$("#et4").value}});save();$("#md").innerHTML="";wk=mon(parse(dy));render();toast("Appuntamento modificato");break;
 case"cy":var cn=$("#cy").value.trim();if(!cn){toast("Scrivi il nome della città");return}
 fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&language=it&name="+encodeURIComponent(cn)).then(function(r){return r.json()}).then(function(j){var g=j.results&&j.results[0];if(!g){toast("Città non trovata");return}D.ui.loc={name:g.name+(g.admin1?", "+g.admin1:""),lat:g.latitude,lon:g.longitude};save();wxFail=false;toast("Località: "+g.name);fetchWx();render()}).catch(function(){wxFail=true;render();toast("Meteo non raggiungibile da questa pagina")});break;
 case"gl":if(!navigator.geolocation){toast("Posizione non disponibile");return}navigator.geolocation.getCurrentPosition(function(p){D.ui.loc={name:"La mia posizione",lat:+p.coords.latitude.toFixed(3),lon:+p.coords.longitude.toFixed(3)};save();wxFail=false;fetchWx();render();toast("Posizione impostata")},function(){toast("Posizione non disponibile")});break;
