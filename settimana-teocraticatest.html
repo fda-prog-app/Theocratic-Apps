@@ -88,7 +88,7 @@ textarea::-webkit-scrollbar{width:8px}
 textarea::-webkit-scrollbar-track{background:var(--ac2);border-radius:4px}
 textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 .fl{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;font-size:.8rem;color:var(--mu)}
-.fl input[type=time]{display:block;width:100%;min-width:0;max-width:100%;height:44px;padding:10px 8px;text-align:left;-webkit-appearance:none;appearance:none}
+.fl input[type=time],.fl input[type=date]{display:block;width:100%;min-width:0;max-width:100%;height:44px;padding:10px 8px;text-align:left;-webkit-appearance:none;appearance:none}
 .day h3{justify-content:flex-start;align-items:center;gap:8px}
 .day.today h3::after{order:1}
 .wx{order:2;margin-left:auto;display:flex;flex-direction:column;align-items:center;font-size:1.3rem;line-height:1.1}
@@ -103,7 +103,7 @@ textarea::-webkit-scrollbar-thumb{background:var(--mu);border-radius:4px}
 <div id="toast"></div>
 <script>
 (function(){
-var VER="2026-11-09-6";
+var VER="2026-11-09-8";
 var K="mst_v1",mem=null;
 function blank(){return{tasks:[],notes:{},days:{},tips:[],sv:{},stu:[],extra:{},bib:{},ui:{}}}
 function load(){try{var s=localStorage.getItem(K);if(s){var o=JSON.parse(s);return norm(o)}}catch(e){}return norm(mem||blank())}
@@ -146,6 +146,7 @@ var bday=null;
 function bibRange(a){a.sort(function(x,y){return x-y});var o=[],s=a[0],p=a[0];for(var i=1;i<=a.length;i++){if(a[i]===p+1){p=a[i];continue}o.push(s===p?""+s:s+"-"+p);s=a[i];p=a[i]}return o.join(", ")}
 function bibSum(day){var m={};(D.bib[day]||[]).forEach(function(k){var q=k.split(":");(m[q[0]]=m[q[0]]||[]).push(+q[1])});return Object.keys(m).sort(function(a,b){return a-b}).map(function(b){return BK[b][0]+" "+bibRange(m[b])}).join("; ")}
 function mapsUrl(q){return"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(q)}
+function serieOf(t){if(t.kind!=="w")return[t];if(t.rg)return D.tasks.filter(function(x){return x.rg===t.rg});var b=parse(t.day).getTime();return D.tasks.filter(function(x){return x.kind==="w"&&!x.rg&&x.text===t.text&&(x.loc||"")===(t.loc||"")&&(x.time||"")===(t.time||"")&&(x.time2||"")===(t.time2||"")&&Math.round((parse(x.day).getTime()-b)/864e5)%7===0})}
 function bibLast(){var t=TODAY(),ks=Object.keys(D.bib).filter(function(k){return(D.bib[k]||[]).length}).sort();if(!ks.length)return"";var q=ks.filter(function(k){return k<=t}),l=q.length?q[q.length-1]:ks[ks.length-1],n=Math.round((parse(t)-parse(l))/864e5);return it(parse(l),{weekday:"long",day:"numeric",month:"long",year:"numeric"})+(n===0?" (oggi)":n===1?" (ieri)":n>1?" ("+n+" giorni fa)":"")}
 function bibDays(){var yr=new Date().getFullYear(),diy=((yr%4===0&&yr%100!==0)||yr%400===0)?366:365,mc=[],n=0,i;for(i=0;i<12;i++)mc.push(0);for(var k in D.bib){if((D.bib[k]||[]).length&&k.slice(0,4)===""+yr){mc[+k.slice(5,7)-1]++;n++}}return{yr:yr,diy:diy,n:n,mc:mc}}
 function bibHtml(){var day=bday||TODAY(),b=+D.ui.bb||0;if(b<0||b>65)b=0;var n=BK[b][1],cur={},oth={},tot=0,chips="",first=0,opts="",co="",c,i;
@@ -166,7 +167,7 @@ h+=bibHtml();
 h+='<details id="apd" class="card"'+(D.ui.ao?" open":"")+'><summary><b><span aria-hidden="true">🖊️</span> Inserisci appuntamento o attività</b></summary><div style="height:10px"></div><input id="tt" placeholder="Nuovo appuntamento" maxlength="120"><div class="row"><input id="ty" placeholder="Tipo di attività" maxlength="60"></div><div class="row"><input id="tl" placeholder="Luogo (indirizzo o nome del posto)" maxlength="120" autocomplete="off"></div><div class="row"><select id="td">';
 for(var i=0;i<7;i++){var d=addD(wk,i);h+='<option value="'+fmt(d)+'"'+(fmt(d)===TODAY()?" selected":"")+'>'+esc(it(d,{weekday:"long",day:"numeric"}))+'</option>'}
 h+='</select></div><div class="row"><label class="fl"><span>Dalle</span><input id="tm" type="time"></label><label class="fl"><span>Alle</span><input id="tm2" type="time"></label></div><button class="btn full" data-a="add">Aggiungi</button></details>';
-h+='<details id="lvd" class="card"'+(D.ui.lo?" open":"")+'><summary><b><span aria-hidden="true">💼</span> Inserisci impegni di lavoro</b></summary><div style="height:10px"></div><input id="wt" placeholder="Turno o impegno di lavoro" maxlength="120"><div class="row"><input id="wl" placeholder="Luogo (indirizzo o nome del posto)" maxlength="120" autocomplete="off"></div><div class="row"><select id="wd">'+weekOpts()+'</select></div><div class="row"><label class="fl"><span>Dalle</span><input id="wf" type="time"></label><label class="fl"><span>Alle</span><input id="wu" type="time"></label></div><button class="btn full" data-a="addw">Aggiungi</button></details>';
+h+='<details id="lvd" class="card"'+(D.ui.lo?" open":"")+'><summary><b><span aria-hidden="true">💼</span> Inserisci impegni di lavoro</b></summary><div style="height:10px"></div><input id="wt" placeholder="Turno o impegno di lavoro" maxlength="120"><div class="row"><input id="wl" placeholder="Luogo (indirizzo o nome del posto)" maxlength="120" autocomplete="off"></div><div class="row"><select id="wd">'+weekOpts()+'</select></div><div class="row"><label class="fl"><span>Dalle</span><input id="wf" type="time"></label><label class="fl"><span>Alle</span><input id="wu" type="time"></label></div><div class="row"><label class="fl"><span>Ripeti</span><select id="wr"><option value="">Non ripetere</option><option value="1">Ogni settimana</option><option value="2">Ogni 2 settimane</option><option value="3">Ogni 3 settimane</option><option value="4">Ogni 4 settimane</option></select></label><label class="fl"><span>Fino al (facoltativo)</span><input id="wx" type="date"></label></div><p class="mu" style="margin:6px 0 0">Se non scegli la data finale, l’impegno viene copiato per 3 mesi.</p><button class="btn full" data-a="addw">Aggiungi</button></details>';
 h+='<details id="wkd" class="card"'+(D.ui.wo!==false?" open":"")+'><summary><b><span class="so"><span aria-hidden="true">📁</span> Apri la settimana</span><span class="sc"><span aria-hidden="true">📂</span> Chiudi la settimana</span></b></summary><div style="height:10px"></div>';
 for(var j=0;j<7;j++){var dd=addD(wk,j),k=fmt(dd);
 var ts=D.tasks.filter(function(t){return t.day===k}).sort(function(a,b){return(a.time||"99").localeCompare(b.time||"99")});
@@ -306,9 +307,16 @@ case"mp":mo=new Date(mo.getFullYear(),mo.getMonth()-1,1);render();break;
 case"mn":mo=new Date(mo.getFullYear(),mo.getMonth()+1,1);render();break;
 case"sd":sel=v;var d=parse(v);if(d.getMonth()!==mo.getMonth())mo=new Date(d.getFullYear(),d.getMonth(),1);render();showDay();break;
 case"add":var t=$("#tt").value.trim();if(!t){toast("Scrivi prima l’appuntamento");return}D.tasks.push({id:"t"+Date.now(),day:$("#td").value,time:$("#tm").value,time2:$("#tm2").value,type:$("#ty").value.trim(),loc:$("#tl").value.trim(),text:t,done:false});save();render();break;
-case"addw":var wt=$("#wt").value.trim();if(!wt){toast("Scrivi il turno o l’impegno di lavoro");return}D.tasks.push({id:"t"+Date.now(),kind:"w",day:$("#wd").value,time:$("#wf").value,time2:$("#wu").value,type:"",loc:$("#wl").value.trim(),text:wt,done:false});save();render();break;
+case"addw":var wt=$("#wt").value.trim();if(!wt){toast("Scrivi il turno o l’impegno di lavoro");return}var wday=$("#wd").value,wrp=+$("#wr").value||0,wxe=$("#wx").value,wc=0,wbase={rg:(+$("#wr").value?"r"+Date.now():undefined),kind:"w",time:$("#wf").value,time2:$("#wu").value,type:"",loc:$("#wl").value.trim(),text:wt,done:false};
+D.tasks.push(Object.assign({id:"t"+Date.now(),day:wday},wbase));
+if(wrp&&wday){var w0=parse(wday),wend=wxe?parse(wxe):new Date(w0.getFullYear(),w0.getMonth()+3,w0.getDate());for(var wk2=1;wk2<=120;wk2++){var wdd=addD(w0,7*wrp*wk2);if(wdd>wend)break;D.tasks.push(Object.assign({id:"t"+(Date.now()+wk2),day:fmt(wdd)},wbase));wc++}}
+save();render();if(wrp)toast(wc?"Impegno inserito e copiato in altre "+wc+" date":"Impegno inserito (nessuna copia: la data finale è troppo vicina)");break;
 case"tg":D.tasks.forEach(function(x){if(x.id===v)x.done=el.checked});save();render();break;
-case"rm":D.tasks=D.tasks.filter(function(x){return x.id!==v});save();render();break;
+case"rm":var rt=D.tasks.filter(function(x){return x.id===v})[0],rsr=rt?serieOf(rt):[];
+if(rt&&rt.kind==="w"&&rsr.length>1){var rd=rsr.map(function(x){return x.day}).sort();$("#md").innerHTML='<div class="ov"><div class="sh" role="dialog" aria-modal="true"><h2 style="margin-top:0">Elimina impegno di lavoro</h2><p class="mu">«'+esc(rt.text)+'» si ripete in '+rsr.length+' date, dal '+esc(it(parse(rd[0]),{day:"numeric",month:"long",year:"numeric"}))+' al '+esc(it(parse(rd[rd.length-1]),{day:"numeric",month:"long",year:"numeric"}))+'. Cosa vuoi eliminare?</p><div class="row"><button class="btn sec" style="flex:1" data-a="rm1" data-v="'+esc(v)+'">Solo questo</button><button class="btn" style="flex:1;background:var(--dn)" data-a="rmS" data-v="'+esc(v)+'">Tutta la serie</button></div><button class="btn sec full" style="margin-top:8px" data-a="cl">Annulla</button></div></div>';break}
+D.tasks=D.tasks.filter(function(x){return x.id!==v});save();render();break;
+case"rm1":D.tasks=D.tasks.filter(function(x){return x.id!==v});$("#md").innerHTML="";save();render();toast("Impegno eliminato");break;
+case"rmS":var rs0=D.tasks.filter(function(x){return x.id===v})[0],rids={};if(rs0)serieOf(rs0).forEach(function(x){rids[x.id]=1});D.tasks=D.tasks.filter(function(x){return!rids[x.id]});$("#md").innerHTML="";save();render();toast("Serie eliminata ("+Object.keys(rids).length+" impegni)");break;
 case"at":var n=$("#nt").value.trim();if(!n){toast("Scrivi prima lo spunto");return}D.tips.push({id:"p"+Date.now(),text:n});save();render();break;
 case"rt":D.tips=D.tips.filter(function(x){return x.id!==v});save();render();break;
 case"ast":var sn=$("#sn").value.trim(),ss=$("#ss").value,nm=sn||ss;if(!nm){toast("Scegli o scrivi il nome dello studente");return}
