@@ -51,6 +51,8 @@
   <input type="file" id="fAcqua" accept="application/pdf">
   <div class="st" id="stAcqua"></div>
   <div style="margin-top:12px">
+    <label class="f">Periodo delle letture acqua (letto dal PDF, modificabile)</label>
+    <input type="text" id="periodoAcqua" placeholder="es. dal 13/05/2026 al 10/08/2026" style="margin-bottom:12px">
     <label class="f">Condomino e consumo (base di proporzione)</label>
     <div id="rows"></div>
   </div>
@@ -64,7 +66,7 @@
 
 <div class="card">
   <h2>4. Messaggio</h2>
-  <label class="f">Periodo (facoltativo, es. “giugno–settembre 2026”)</label>
+  <label class="f">Periodo della bolletta (letto dal PDF, modificabile)</label>
   <input type="text" id="periodo" placeholder="Periodo di riferimento">
   <textarea id="msg" style="margin-top:10px"></textarea>
   <button id="copy">Copia messaggio</button>
@@ -105,7 +107,21 @@ function parseLuce(lines){
     else if(/accise\s*e\s*iva/i.test(l)){const v=lastMoney(l);if(v!=null)accise=v}
     else if(/totale\s*da\s*pagare/i.test(l)){const v=lastMoney(l);if(v!=null)totale=v}
   }
-  return{consumi:nC?consumi:null,fissa:nF?fissa:null,potenza:nP?potenza:null,accise,totale};
+  return{consumi:nC?consumi:null,fissa:nF?fissa:null,potenza:nP?potenza:null,accise,totale,periodo:findPeriodo(lines)};
+}
+function findPeriodo(lines){
+  const D="(\\d{2}[./]\\d{2}[./]\\d{4})";
+  const re=new RegExp(D+"\\s*(?:-|–|al|a)\\s*"+D,"i");
+  const fix=s=>s.replace(/\./g,"/");
+  let any=null;
+  for(let i=0;i<lines.length;i++){
+    const m=(lines[i]+" "+(lines[i+1]||"")).match(re);
+    if(!m)continue;
+    const res=`dal ${fix(m[1])} al ${fix(m[2])}`;
+    if(/period|fattur|consum|dal/i.test(lines[i]))return res;
+    if(!any)any=res;
+  }
+  return any;
 }
 
 /* ---- Lettura acqua ---- */
@@ -119,6 +135,11 @@ function parseAcqua(lines){
   return res;
 }
 
+function findLetture(lines){
+  const re=/(\d{2}\/\d{2}\/\d{4})\s+(\d{2}\/\d{2}\/\d{4})/;
+  for(const l of lines){const m=l.match(re);if(m)return `dal ${m[1]} al ${m[2]}`}
+  return null;
+}
 /* ---- Utilità ---- */
 function alloc(total,weights){ // ripartizione in centesimi, metodo del resto maggiore
   const sw=weights.reduce((a,b)=>a+b,0);
@@ -167,16 +188,24 @@ function buildMsg(){
   if(!last)return;
   const L=last,per=$("periodo").value.trim();
   const fmtN=n=>String(Math.round(n*100)/100).replace(".",",");
-  let t=`⚡ Ripartizione bolletta luce${per?" – "+per:""}\n`;
-  t+=`Totale bolletta: € ${$("vTotale").value?eur(cents("vTotale")):"—"} + commissioni bollettino € ${eur(L.comm)}\n\n`;
+  let t=`*⚡ BOLLETTA LUCE CONDOMINIO*\n`;
+  t+=per?`*Periodo di fatturazione: ${per}*\n\n`:`\n`;
+  t+=`*Totale bolletta: € ${$("vTotale").value?eur(cents("vTotale")):"—"}*\n`;
+  t+=`Commissioni bollettino: € ${eur(L.comm)}\n`;
+  t+=`*Totale da ripartire: € ${eur(cents("vTotale")+L.comm)}*\n\n`;
   t+=`Criteri:\n• Quota consumi (€ ${eur(L.cons)}): in proporzione ai consumi del riparto acqua\n• Quota fissa, quota potenza, accise e IVA (€ ${eur(L.fix)}): divise in 3 parti uguali\n• Commissioni (€ ${eur(L.comm)}): divise in 3 parti uguali\n\n`;
   L.names.forEach((n,i)=>{
     t+=`👤 ${n.toUpperCase()}\n`;
     t+=`• Consumi (${fmtN(L.w[i])}/${fmtN(L.sw)}): € ${eur(L.aC[i])}\n`;
     t+=`• Fisse, potenza, accise e IVA (1/3): € ${eur(L.aF[i])}\n`;
     t+=`• Commissioni (1/3): € ${eur(L.aM[i])}\n`;
-    t+=`➡️ TOTALE: € ${eur(L.tot[i])}\n\n`;
+    t+=`➡️ *TOTALE: € ${eur(L.tot[i])}*\n\n`;
   });
+  const pa=$("periodoAcqua").value.trim();
+  t+=`📝 *Nota – consumi acqua usati per il calcolo*\n`;
+  t+=pa?`Letture ${pa} (mc):\n`:`Ultime letture acqua (mc):\n`;
+  L.names.forEach((n,i)=>{t+=`• ${n}: ${fmtN(L.w[i])}\n`});
+  t+=`• Totale: ${fmtN(L.sw)}`;
   $("msg").value=t.trim();
   $("wa").href="https://wa.me/?text="+encodeURIComponent($("msg").value);
 }
@@ -184,6 +213,7 @@ function buildMsg(){
 /* ---- Eventi ---- */
 ["vConsumi","vFissa","vPotenza","vAccise","vTotale","vComm"].forEach(id=>$(id).addEventListener("input",calc));
 $("periodo").addEventListener("input",buildMsg);
+$("periodoAcqua").addEventListener("input",buildMsg);
 $("msg").addEventListener("input",()=>{$("wa").href="https://wa.me/?text="+encodeURIComponent($("msg").value)});
 $("copy").addEventListener("click",async()=>{
   try{await navigator.clipboard.writeText($("msg").value)}catch(e){$("msg").select();document.execCommand("copy")}
@@ -196,6 +226,7 @@ $("fLuce").addEventListener("change",async e=>{
   try{
     const r=parseLuce(await pdfLines(f));
     const set=(id,v)=>{if(v!=null)$(id).value=v.toFixed(2)};
+    if(r.periodo)$("periodo").value=r.periodo;
     set("vConsumi",r.consumi);set("vFissa",r.fissa);set("vPotenza",r.potenza);set("vAccise",r.accise);set("vTotale",r.totale);
     const miss=Object.entries(r).filter(([,v])=>v==null).map(([k])=>k);
     $("stLuce").innerHTML=miss.length?`<span class="wa">Non ho trovato: ${miss.join(", ")}. Inseriscili a mano.</span>`:`<span class="ok">Valori letti. Controlla che siano corretti.</span>`;
@@ -207,7 +238,9 @@ $("fAcqua").addEventListener("change",async e=>{
   const f=e.target.files[0];if(!f)return;
   $("stAcqua").textContent="Lettura in corso…";
   try{
-    const r=parseAcqua(await pdfLines(f));
+    const lines=await pdfLines(f);
+    const r=parseAcqua(lines);
+    const pa=findLetture(lines);if(pa)$("periodoAcqua").value=pa;
     renderRows(r);
     $("stAcqua").innerHTML=r.length===3?`<span class="ok">Riparto letto (consumi individuali in bolletta). Controlla i valori.</span>`:`<span class="wa">Ho trovato ${r.length} condomini su 3. Completa a mano.</span>`;
   }catch(err){$("stAcqua").innerHTML=`<span class="wa">Impossibile leggere il PDF (${err.message}). Inserisci i valori a mano.</span>`}
