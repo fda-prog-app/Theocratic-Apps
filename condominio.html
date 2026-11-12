@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riparto luce condominio</title>
+<style>
+  :root{--bg:#f5f6fa;--card:#fff;--tx:#1b1f2a;--mu:#667085;--ac:#3f4a8a;--bd:#dfe3ee;--ok:#1a7f4b;--wa:#b54708}
+  @media (prefers-color-scheme:dark){:root{--bg:#12141b;--card:#1b1e28;--tx:#eceff6;--mu:#98a2b3;--ac:#8f9bf0;--bd:#2b3040;--ok:#4cc38a;--wa:#f5a25d}}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--tx);padding:16px;max-width:760px;margin-inline:auto}
+  h1{font-size:1.4rem;margin:8px 0 4px}
+  p.sub{color:var(--mu);margin:0 0 16px;font-size:.9rem}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:14px}
+  h2{font-size:1rem;margin:0 0 10px;color:var(--ac)}
+  label.f{display:block;font-size:.85rem;color:var(--mu);margin-bottom:4px}
+  input[type=file]{width:100%;padding:10px;border:1px dashed var(--bd);border-radius:10px;background:transparent;color:var(--tx)}
+  input[type=text],input[type=number]{width:100%;padding:8px;border:1px solid var(--bd);border-radius:8px;background:transparent;color:var(--tx);font-size:1rem}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .row3{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px}
+  table{width:100%;border-collapse:collapse;font-size:.92rem}
+  th,td{padding:7px 4px;text-align:right;border-bottom:1px solid var(--bd)}
+  th:first-child,td:first-child{text-align:left}
+  tr.tot td{font-weight:700;border-bottom:none}
+  textarea{width:100%;min-height:300px;padding:10px;border:1px solid var(--bd);border-radius:10px;background:transparent;color:var(--tx);font:inherit;font-size:.92rem}
+  button,a.btn{display:inline-block;background:var(--ac);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:.95rem;cursor:pointer;text-decoration:none;margin:8px 8px 0 0}
+  @media (prefers-color-scheme:dark){button,a.btn{color:#12141b}}
+  .st{font-size:.85rem;margin-top:8px}.ok{color:var(--ok)}.wa{color:var(--wa)}
+</style>
+</head>
+<body>
+<h1>Riparto luce condominio</h1>
+<p class="sub">Carica le due bollette, controlla i valori letti e copia il messaggio. Tutto resta nel tuo browser.</p>
+
+<div class="card">
+  <h2>1. Bolletta luce (PDF)</h2>
+  <input type="file" id="fLuce" accept="application/pdf">
+  <div class="st" id="stLuce"></div>
+  <div class="grid" style="margin-top:12px">
+    <div><label class="f">Quota consumi (€)</label><input type="number" step="0.01" id="vConsumi"></div>
+    <div><label class="f">Quota fissa (€)</label><input type="number" step="0.01" id="vFissa"></div>
+    <div><label class="f">Quota potenza (€)</label><input type="number" step="0.01" id="vPotenza"></div>
+    <div><label class="f">Accise e IVA (€)</label><input type="number" step="0.01" id="vAccise"></div>
+    <div><label class="f">Totale bolletta (€)</label><input type="number" step="0.01" id="vTotale"></div>
+    <div><label class="f">Commissioni bollettino (€)</label><input type="number" step="0.01" id="vComm" value="2"></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>2. Bolletta acqua – riparto (PDF)</h2>
+  <input type="file" id="fAcqua" accept="application/pdf">
+  <div class="st" id="stAcqua"></div>
+  <div style="margin-top:12px">
+    <label class="f">Condomino e consumo (base di proporzione)</label>
+    <div id="rows"></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>3. Ripartizione</h2>
+  <div style="overflow-x:auto"><table id="tab"></table></div>
+  <div class="st" id="check"></div>
+</div>
+
+<div class="card">
+  <h2>4. Messaggio</h2>
+  <label class="f">Periodo (facoltativo, es. “giugno–settembre 2026”)</label>
+  <input type="text" id="periodo" placeholder="Periodo di riferimento">
+  <textarea id="msg" style="margin-top:10px"></textarea>
+  <button id="copy">Copia messaggio</button>
+  <a class="btn" id="wa" target="_blank" rel="noopener">Invia su WhatsApp</a>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const $=id=>document.getElementById(id);
+const MONEY=/-?\d{1,3}(?:\.\d{3})*,\d{2}(?!\d)/g;
+const num=s=>parseFloat(s.replace(/\./g,"").replace(",","."));
+const eur=c=>(c/100).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
+const lastMoney=l=>{const m=l.match(MONEY);return m?num(m[m.length-1]):null};
+
+async function pdfLines(file){
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+  const out=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const tc=await(await pdf.getPage(p)).getTextContent();
+    const rows={};
+    tc.items.forEach(it=>{if(!it.str.trim())return;const y=Math.round(it.transform[5]/3);(rows[y]=rows[y]||[]).push({x:it.transform[4],s:it.str})});
+    Object.keys(rows).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      out.push(rows[y].sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ").replace(/\s+/g," ").trim());
+    });
+  }
+  return out;
+}
+
+/* ---- Lettura luce ---- */
+function parseLuce(lines){
+  let consumi=0,fissa=0,potenza=0,accise=null,totale=null,nC=0,nF=0,nP=0;
+  for(const l of lines){
+    if(/^di cui/i.test(l))continue;
+    if(/^\d[\d.,]*\s*kWh/i.test(l)){const v=lastMoney(l);if(v!=null){consumi+=v;nC++}}
+    else if(/^\d+\s*mesi/i.test(l)){const v=lastMoney(l);if(v!=null){fissa+=v;nF++}}
+    else if(/^[\d.,]+\s*kW\s+per/i.test(l)){const v=lastMoney(l);if(v!=null){potenza+=v;nP++}}
+    else if(/accise\s*e\s*iva/i.test(l)){const v=lastMoney(l);if(v!=null)accise=v}
+    else if(/totale\s*da\s*pagare/i.test(l)){const v=lastMoney(l);if(v!=null)totale=v}
+  }
+  return{consumi:nC?consumi:null,fissa:nF?fissa:null,potenza:nP?potenza:null,accise,totale};
+}
+
+/* ---- Lettura acqua ---- */
+function parseAcqua(lines){
+  const res=[];
+  for(const l of lines){
+    if(/totali/i.test(l)&&res.length)break;
+    const m=l.match(/^\s*(\d)\s+([A-Za-zÀ-ÿ'’. ]+?)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\b/);
+    if(m)res.push({name:m[2].trim(),cons:+m[6]});
+  }
+  return res;
+}
+
+/* ---- Utilità ---- */
+function alloc(total,weights){ // ripartizione in centesimi, metodo del resto maggiore
+  const sw=weights.reduce((a,b)=>a+b,0);
+  if(!sw)return weights.map(()=>0);
+  const raw=weights.map(w=>total*w/sw),base=raw.map(Math.floor);
+  let rest=total-base.reduce((a,b)=>a+b,0);
+  raw.map((r,i)=>[r-base[i],i]).sort((a,b)=>b[0]-a[0]).forEach(([,i])=>{if(rest>0){base[i]++;rest--}});
+  return base;
+}
+const cents=id=>Math.round((parseFloat($(id).value)||0)*100);
+
+function renderRows(rows){
+  const box=$("rows");box.innerHTML="";
+  for(let i=0;i<3;i++){
+    const r=rows[i]||{name:"",cons:""};
+    const d=document.createElement("div");d.className="row3";
+    d.innerHTML=`<input type="text" class="rn" placeholder="Nome condomino ${i+1}" value="${r.name}"><input type="number" step="any" class="rc" placeholder="Consumo" value="${r.cons}">`;
+    box.appendChild(d);
+  }
+  box.querySelectorAll("input").forEach(e=>e.addEventListener("input",calc));
+}
+
+/* ---- Calcolo ---- */
+let last=null;
+function calc(){
+  const names=[...document.querySelectorAll(".rn")].map((e,i)=>e.value.trim()||`Condomino ${i+1}`);
+  const w=[...document.querySelectorAll(".rc")].map(e=>parseFloat(e.value)||0);
+  const sw=w.reduce((a,b)=>a+b,0);
+  const cons=cents("vConsumi"),fix=cents("vFissa")+cents("vPotenza")+cents("vAccise"),comm=cents("vComm");
+  const aC=alloc(cons,w),aF=alloc(fix,[1,1,1]),aM=alloc(comm,[1,1,1]);
+  const tot=names.map((_,i)=>aC[i]+aF[i]+aM[i]);
+  last={names,w,sw,aC,aF,aM,tot,cons,fix,comm};
+  let h="<tr><th>Condomino</th><th>Consumi</th><th>Fisse+IVA</th><th>Comm.</th><th>Totale</th></tr>";
+  names.forEach((n,i)=>h+=`<tr><td>${n}</td><td>${eur(aC[i])}</td><td>${eur(aF[i])}</td><td>${eur(aM[i])}</td><td><b>${eur(tot[i])}</b></td></tr>`);
+  h+=`<tr class="tot"><td>Totale</td><td>${eur(aC.reduce((a,b)=>a+b,0))}</td><td>${eur(aF.reduce((a,b)=>a+b,0))}</td><td>${eur(aM.reduce((a,b)=>a+b,0))}</td><td>${eur(tot.reduce((a,b)=>a+b,0))}</td></tr>`;
+  $("tab").innerHTML=h;
+  const exp=cents("vTotale")+comm,sum=tot.reduce((a,b)=>a+b,0);
+  if(!cents("vTotale"))$("check").innerHTML="";
+  else if(exp===sum)$("check").innerHTML=`<span class="ok">✓ Quadra con il totale bolletta + commissioni (€ ${eur(exp)})</span>`;
+  else $("check").innerHTML=`<span class="wa">⚠ Somma ripartita € ${eur(sum)} ≠ totale bolletta + commissioni € ${eur(exp)}: controlla i valori letti.</span>`;
+  if(!sw)$("check").innerHTML+=`<div class="wa">Inserisci i consumi del riparto acqua.</div>`;
+  buildMsg();
+}
+
+function buildMsg(){
+  if(!last)return;
+  const L=last,per=$("periodo").value.trim();
+  const fmtN=n=>String(Math.round(n*100)/100).replace(".",",");
+  let t=`⚡ Ripartizione bolletta luce${per?" – "+per:""}\n`;
+  t+=`Totale bolletta: € ${$("vTotale").value?eur(cents("vTotale")):"—"} + commissioni bollettino € ${eur(L.comm)}\n\n`;
+  t+=`Criteri:\n• Quota consumi (€ ${eur(L.cons)}): in proporzione ai consumi del riparto acqua\n• Quota fissa, quota potenza, accise e IVA (€ ${eur(L.fix)}): divise in 3 parti uguali\n• Commissioni (€ ${eur(L.comm)}): divise in 3 parti uguali\n\n`;
+  L.names.forEach((n,i)=>{
+    t+=`👤 ${n.toUpperCase()}\n`;
+    t+=`• Consumi (${fmtN(L.w[i])}/${fmtN(L.sw)}): € ${eur(L.aC[i])}\n`;
+    t+=`• Fisse, potenza, accise e IVA (1/3): € ${eur(L.aF[i])}\n`;
+    t+=`• Commissioni (1/3): € ${eur(L.aM[i])}\n`;
+    t+=`➡️ TOTALE: € ${eur(L.tot[i])}\n\n`;
+  });
+  $("msg").value=t.trim();
+  $("wa").href="https://wa.me/?text="+encodeURIComponent($("msg").value);
+}
+
+/* ---- Eventi ---- */
+["vConsumi","vFissa","vPotenza","vAccise","vTotale","vComm"].forEach(id=>$(id).addEventListener("input",calc));
+$("periodo").addEventListener("input",buildMsg);
+$("msg").addEventListener("input",()=>{$("wa").href="https://wa.me/?text="+encodeURIComponent($("msg").value)});
+$("copy").addEventListener("click",async()=>{
+  try{await navigator.clipboard.writeText($("msg").value)}catch(e){$("msg").select();document.execCommand("copy")}
+  $("copy").textContent="Copiato ✓";setTimeout(()=>$("copy").textContent="Copia messaggio",1500);
+});
+
+$("fLuce").addEventListener("change",async e=>{
+  const f=e.target.files[0];if(!f)return;
+  $("stLuce").textContent="Lettura in corso…";
+  try{
+    const r=parseLuce(await pdfLines(f));
+    const set=(id,v)=>{if(v!=null)$(id).value=v.toFixed(2)};
+    set("vConsumi",r.consumi);set("vFissa",r.fissa);set("vPotenza",r.potenza);set("vAccise",r.accise);set("vTotale",r.totale);
+    const miss=Object.entries(r).filter(([,v])=>v==null).map(([k])=>k);
+    $("stLuce").innerHTML=miss.length?`<span class="wa">Non ho trovato: ${miss.join(", ")}. Inseriscili a mano.</span>`:`<span class="ok">Valori letti. Controlla che siano corretti.</span>`;
+  }catch(err){$("stLuce").innerHTML=`<span class="wa">Impossibile leggere il PDF (${err.message}). Inserisci i valori a mano.</span>`}
+  calc();
+});
+
+$("fAcqua").addEventListener("change",async e=>{
+  const f=e.target.files[0];if(!f)return;
+  $("stAcqua").textContent="Lettura in corso…";
+  try{
+    const r=parseAcqua(await pdfLines(f));
+    renderRows(r);
+    $("stAcqua").innerHTML=r.length===3?`<span class="ok">Riparto letto (consumi individuali in bolletta). Controlla i valori.</span>`:`<span class="wa">Ho trovato ${r.length} condomini su 3. Completa a mano.</span>`;
+  }catch(err){$("stAcqua").innerHTML=`<span class="wa">Impossibile leggere il PDF (${err.message}). Inserisci i valori a mano.</span>`}
+  calc();
+});
+
+renderRows([]);calc();
+</script>
+</body>
+</html>
