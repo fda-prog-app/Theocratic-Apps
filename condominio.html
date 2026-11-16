@@ -26,12 +26,34 @@
   button,a.btn{display:inline-block;background:var(--ac);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:.95rem;cursor:pointer;text-decoration:none;margin:8px 8px 0 0}
   @media (prefers-color-scheme:dark){button,a.btn{color:#12141b}}
   .st{font-size:.85rem;margin-top:8px}.ok{color:var(--ok)}.wa{color:var(--wa)}
+  .tabs{display:flex;gap:6px;margin:0 0 14px}
+  .tab{flex:1;margin:0;background:var(--card);color:var(--tx);border:1px solid var(--bd);padding:10px 6px}
+  .tab.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+  @media (prefers-color-scheme:dark){.tab.on{color:#12141b}}
+  .rec{border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:10px}
+  .rh{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  .chk{display:flex;align-items:center;gap:6px;font-size:.95rem;cursor:pointer}
+  .chk input{width:20px;height:20px}
+  .mu{color:var(--mu);font-size:.85rem;margin:2px 0}
+  .ric{margin:8px 0;font-size:.9rem}
+  button.sm{padding:6px 12px;font-size:.85rem;margin:6px 6px 0 0}
+  button.del{background:#b42318;color:#fff}
+  .paid{border-color:var(--ok)}
+  .sep{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .sep input{flex:1;min-width:140px}
 </style>
 </head>
 <body>
 <h1>Riparto luce condominio</h1>
 <p class="sub">Carica le due bollette, controlla i valori letti e copia il messaggio. Tutto resta nel tuo browser.</p>
 
+<div class="tabs">
+  <button class="tab on" data-t="calcolo">Calcolo</button>
+  <button class="tab" data-t="storico">Storico</button>
+  <button class="tab" data-t="lavori">Lavori</button>
+</div>
+
+<div id="sec-calcolo">
 <div class="card">
   <h2>1. Bolletta luce (PDF)</h2>
   <input type="file" id="fLuce" accept="application/pdf">
@@ -71,6 +93,49 @@
   <textarea id="msg" style="margin-top:10px"></textarea>
   <button id="copy">Copia messaggio</button>
   <a class="btn" id="wa" target="_blank" rel="noopener">Invia su WhatsApp</a>
+  <div class="sep">
+    <input type="month" id="meseSave">
+    <button id="salva" style="margin:0">Salva nello storico</button>
+  </div>
+  <div class="st" id="stSalva"></div>
+</div>
+</div>
+
+<div id="sec-storico" hidden>
+  <div class="card">
+    <h2>Storico bollette</h2>
+    <div class="mu" id="sumStorico"></div>
+  </div>
+  <div id="listaStorico"></div>
+  <div class="card">
+    <h2>Backup dati</h2>
+    <p class="mu" style="margin-top:0">I dati sono salvati nel browser di questo dispositivo. Esporta un backup ogni tanto (include le ricevute) e importalo per ripristinarlo o spostarlo su un altro dispositivo.</p>
+    <button id="exp">Esporta backup</button>
+    <button id="impBtn">Importa backup</button>
+    <input type="file" id="imp" accept="application/json" hidden>
+    <div class="st" id="stBk"></div>
+  </div>
+</div>
+
+<div id="sec-lavori" hidden>
+  <div class="card">
+    <h2>Nuovo lavoro di manutenzione straordinaria</h2>
+    <label class="f">Tipo di lavoro</label>
+    <input type="text" id="lTipo" placeholder="es. Rifacimento tetto" style="margin-bottom:10px">
+    <div class="grid">
+      <div><label class="f">Data</label><input type="date" id="lData"></div>
+      <div><label class="f">Importo totale (€)</label><input type="number" step="0.01" id="lImp"></div>
+    </div>
+    <label class="f" style="margin-top:10px">Note (facoltative)</label>
+    <input type="text" id="lNote" placeholder="es. ditta, fattura n. …">
+    <div class="st" id="lPrev"></div>
+    <button id="lAdd">Aggiungi lavoro</button>
+  </div>
+  <div class="card">
+    <h2>Lavori registrati</h2>
+    <div id="lLista"></div>
+    <div id="lTot" style="margin-top:10px"></div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -154,7 +219,7 @@ const cents=id=>Math.round((parseFloat($(id).value)||0)*100);
 function renderRows(rows){
   const box=$("rows");box.innerHTML="";
   for(let i=0;i<3;i++){
-    const r=rows[i]||{name:"",cons:""};
+    const r=rows[i]||{name:(loadJ("cond_nomi",[])[i]||""),cons:""};
     const d=document.createElement("div");d.className="row3";
     d.innerHTML=`<input type="text" class="rn" placeholder="Nome condomino ${i+1}" value="${r.name}"><input type="number" step="any" class="rc" placeholder="Consumo" value="${r.cons}">`;
     box.appendChild(d);
@@ -165,7 +230,9 @@ function renderRows(rows){
 /* ---- Calcolo ---- */
 let last=null;
 function calc(){
-  const names=[...document.querySelectorAll(".rn")].map((e,i)=>e.value.trim()||`Condomino ${i+1}`);
+  const rawN=[...document.querySelectorAll(".rn")].map(e=>e.value.trim());
+  if(rawN.some(Boolean))localStorage.setItem("cond_nomi",JSON.stringify(rawN));
+  const names=rawN.map((v,i)=>v||`Condomino ${i+1}`);
   const w=[...document.querySelectorAll(".rc")].map(e=>parseFloat(e.value)||0);
   const sw=w.reduce((a,b)=>a+b,0);
   const cons=cents("vConsumi"),fix=cents("vFissa")+cents("vPotenza")+cents("vAccise"),comm=cents("vComm");
@@ -226,7 +293,7 @@ $("fLuce").addEventListener("change",async e=>{
   try{
     const r=parseLuce(await pdfLines(f));
     const set=(id,v)=>{if(v!=null)$(id).value=v.toFixed(2)};
-    if(r.periodo)$("periodo").value=r.periodo;
+    if(r.periodo){$("periodo").value=r.periodo;const mm=r.periodo.match(/al\s+\d{2}\/(\d{2})\/(\d{4})/);if(mm)$("meseSave").value=mm[2]+"-"+mm[1]}
     set("vConsumi",r.consumi);set("vFissa",r.fissa);set("vPotenza",r.potenza);set("vAccise",r.accise);set("vTotale",r.totale);
     const miss=Object.entries(r).filter(([,v])=>v==null).map(([k])=>k);
     $("stLuce").innerHTML=miss.length?`<span class="wa">Non ho trovato: ${miss.join(", ")}. Inseriscili a mano.</span>`:`<span class="ok">Valori letti. Controlla che siano corretti.</span>`;
@@ -245,6 +312,137 @@ $("fAcqua").addEventListener("change",async e=>{
     $("stAcqua").innerHTML=r.length===3?`<span class="ok">Riparto letto (consumi individuali in bolletta). Controlla i valori.</span>`:`<span class="wa">Ho trovato ${r.length} condomini su 3. Completa a mano.</span>`;
   }catch(err){$("stAcqua").innerHTML=`<span class="wa">Impossibile leggere il PDF (${err.message}). Inserisci i valori a mano.</span>`}
   calc();
+});
+
+/* ================= Persistenza, storico, lavori ================= */
+function loadJ(k,d){try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}}
+function saveJ(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){alert("Impossibile salvare nel browser: "+e.message);return false}}
+const esc=t=>String(t==null?"":t).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const meseLabel=m=>{const[y,mo]=m.split("-");const t=new Date(+y,+mo-1,1).toLocaleDateString("it-IT",{month:"long",year:"numeric"});return t.charAt(0).toUpperCase()+t.slice(1)};
+const dataLabel=d=>d?new Date(d+"T12:00:00").toLocaleDateString("it-IT"):"";
+const getNomi=()=>{const n=loadJ("cond_nomi",[]);return [0,1,2].map(i=>(n[i]||"").trim()||`Condomino ${i+1}`)};
+
+/* IndexedDB per le ricevute PDF */
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open("condominio",1);r.onupgradeneeded=()=>r.result.createObjectStore("ricevute");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function idbOp(mode,fn){const db=await idb();return new Promise((res,rej)=>{const tx=db.transaction("ricevute",mode);const rq=fn(tx.objectStore("ricevute"));tx.oncomplete=()=>res(rq&&rq.result);tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)})}
+const rcPut=(id,name,blob)=>idbOp("readwrite",s=>s.put({name,blob},id));
+const rcGet=id=>idbOp("readonly",s=>s.get(id));
+const rcDel=id=>idbOp("readwrite",s=>s.delete(id));
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+
+/* Tabs */
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b));
+  ["calcolo","storico","lavori"].forEach(t=>$("sec-"+t).hidden=(t!==b.dataset.t));
+  if(b.dataset.t==="storico")renderStorico();
+  if(b.dataset.t==="lavori")renderLavori();
+}));
+
+/* Storico */
+$("meseSave").value=new Date().toISOString().slice(0,7);
+$("salva").addEventListener("click",()=>{
+  if(!last||!cents("vTotale")){alert("Carica prima la bolletta luce e controlla i valori.");return}
+  const mese=$("meseSave").value;if(!mese){alert("Scegli il mese.");return}
+  const recs=loadJ("cond_storico",[]);
+  const ex=recs.find(r=>r.id===mese);
+  if(ex&&!confirm(`Esiste già una bolletta per ${meseLabel(mese)}. Sostituirla? (stato “pagata” e ricevuta restano)`))return;
+  const rec={id:mese,mese,periodo:$("periodo").value.trim(),periodoAcqua:$("periodoAcqua").value.trim(),
+    totale:cents("vTotale"),comm:last.comm,quote:last.names.map((n,i)=>({name:n,c:last.tot[i]})),
+    msg:$("msg").value,pagata:ex?ex.pagata:false,ricevuta:ex?ex.ricevuta:null};
+  const out=recs.filter(r=>r.id!==mese);out.push(rec);
+  if(saveJ("cond_storico",out))$("stSalva").innerHTML=`<span class="ok">Salvata in ${esc(meseLabel(mese))}. Trovi la bolletta nella scheda Storico.</span>`;
+});
+
+function renderStorico(){
+  const recs=loadJ("cond_storico",[]).sort((a,b)=>b.mese.localeCompare(a.mese));
+  const box=$("listaStorico");box.innerHTML="";
+  const np=recs.filter(r=>!r.pagata).length;
+  $("sumStorico").textContent=recs.length?`${recs.length} bollette salvate · ${np} da pagare`:"Nessuna bolletta salvata. Dalla scheda Calcolo premi “Salva nello storico”.";
+  recs.forEach(r=>{
+    const d=document.createElement("div");d.className="card rec"+(r.pagata?" paid":"");
+    d.innerHTML=`<div class="rh"><b>${esc(meseLabel(r.mese))}</b><label class="chk"><input type="checkbox" class="cp"${r.pagata?" checked":""}> Pagata</label></div>
+      <div class="mu">${r.periodo?esc(r.periodo)+" · ":""}Totale € ${eur(r.totale)} (+ commissioni € ${eur(r.comm)})</div>
+      <div class="mu">${r.quote.map(q=>esc(q.name)+" € "+eur(q.c)).join(" · ")}</div>
+      <div class="ric">${r.ricevuta?`📎 ${esc(r.ricevuta)} <button class="sm bo">Apri</button><button class="sm br">Rimuovi</button>`:`<label class="f">Ricevuta di pagamento (PDF)</label><input type="file" accept="application/pdf" class="fr">`}</div>
+      <div><button class="sm bm">Copia messaggio</button><button class="sm del bd">Elimina</button></div>`;
+    const upd=fn=>{const all=loadJ("cond_storico",[]);const x=all.find(z=>z.id===r.id);if(x){fn(x);saveJ("cond_storico",all)}renderStorico()};
+    d.querySelector(".cp").addEventListener("change",e=>upd(x=>x.pagata=e.target.checked));
+    const fr=d.querySelector(".fr");
+    if(fr)fr.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;
+      try{await rcPut(r.id,f.name,f);upd(x=>x.ricevuta=f.name)}catch(err){alert("Impossibile salvare la ricevuta: "+err.message)}});
+    const bo=d.querySelector(".bo");
+    if(bo)bo.addEventListener("click",async()=>{const v=await rcGet(r.id);if(!v){alert("Ricevuta non trovata in memoria.");return}
+      const u=URL.createObjectURL(v.blob);window.open(u,"_blank");setTimeout(()=>URL.revokeObjectURL(u),60000)});
+    const br=d.querySelector(".br");
+    if(br)br.addEventListener("click",async()=>{if(!confirm("Rimuovere la ricevuta?"))return;await rcDel(r.id);upd(x=>x.ricevuta=null)});
+    d.querySelector(".bm").addEventListener("click",async e=>{
+      try{await navigator.clipboard.writeText(r.msg||"")}catch(_){}
+      e.target.textContent="Copiato ✓";setTimeout(()=>e.target.textContent="Copia messaggio",1500)});
+    d.querySelector(".bd").addEventListener("click",async()=>{
+      if(!confirm(`Eliminare la bolletta di ${meseLabel(r.mese)} e la sua ricevuta?`))return;
+      await rcDel(r.id).catch(()=>{});saveJ("cond_storico",loadJ("cond_storico",[]).filter(z=>z.id!==r.id));renderStorico()});
+    box.appendChild(d);
+  });
+}
+
+/* Lavori straordinari */
+$("lData").value=new Date().toISOString().slice(0,10);
+function lavoriPrev(){
+  const c=cents("lImp"),n=getNomi(),a=alloc(c,[1,1,1]);
+  $("lPrev").innerHTML=c?`Divisione in 3: ${n.map((x,i)=>esc(x)+" <b>€ "+eur(a[i])+"</b>").join(" · ")}`:"";
+}
+$("lImp").addEventListener("input",lavoriPrev);
+$("lAdd").addEventListener("click",()=>{
+  const tipo=$("lTipo").value.trim(),c=cents("lImp");
+  if(!tipo||!c){alert("Inserisci tipo di lavoro e importo.");return}
+  const n=getNomi(),a=alloc(c,[1,1,1]);
+  const L=loadJ("cond_lavori",[]);
+  L.push({id:Date.now(),data:$("lData").value,tipo,importo:c,note:$("lNote").value.trim(),quote:n.map((x,i)=>({name:x,c:a[i]}))});
+  if(saveJ("cond_lavori",L)){$("lTipo").value="";$("lImp").value="";$("lNote").value="";lavoriPrev();renderLavori()}
+});
+function renderLavori(){
+  lavoriPrev();
+  const L=loadJ("cond_lavori",[]).sort((a,b)=>(b.data||"").localeCompare(a.data||"")||b.id-a.id);
+  const box=$("lLista");box.innerHTML=L.length?"":'<div class="mu">Nessun lavoro registrato.</div>';
+  L.forEach(w=>{
+    const d=document.createElement("div");d.className="rec";
+    d.innerHTML=`<div class="rh"><b>${esc(w.tipo)}</b><b>€ ${eur(w.importo)}</b></div>
+      <div class="mu">${esc(dataLabel(w.data))}${w.note?" · "+esc(w.note):""}</div>
+      <div class="mu">${w.quote.map(q=>esc(q.name)+" € "+eur(q.c)).join(" · ")}</div>
+      <button class="sm del">Elimina</button>`;
+    d.querySelector("button").addEventListener("click",()=>{if(confirm(`Eliminare “${w.tipo}”?`)){saveJ("cond_lavori",loadJ("cond_lavori",[]).filter(z=>z.id!==w.id));renderLavori()}});
+    box.appendChild(d);
+  });
+  const tot=L.reduce((s,w)=>s+w.importo,0),n=getNomi();
+  const per=[0,1,2].map(i=>L.reduce((s,w)=>s+((w.quote[i]||{}).c||0),0));
+  $("lTot").innerHTML=L.length?`<b>Totale lavori: € ${eur(tot)}</b><div class="mu">${n.map((x,i)=>esc(x)+" € "+eur(per[i])).join(" · ")}</div>`:"";
+}
+
+/* Backup */
+const b64=blob=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(blob)});
+$("exp").addEventListener("click",async()=>{
+  const storico=loadJ("cond_storico",[]),ricevute={};
+  for(const r of storico){if(r.ricevuta){const v=await rcGet(r.id).catch(()=>null);if(v)ricevute[r.id]={name:v.name,data:await b64(v.blob)}}}
+  const data={versione:1,esportato:new Date().toISOString(),nomi:loadJ("cond_nomi",[]),storico,lavori:loadJ("cond_lavori",[]),ricevute};
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:"application/json"}));
+  a.download="condominio-backup-"+new Date().toISOString().slice(0,10)+".json";a.click();
+  $("stBk").innerHTML='<span class="ok">Backup esportato.</span>';
+});
+$("impBtn").addEventListener("click",()=>$("imp").click());
+$("imp").addEventListener("change",async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const d=JSON.parse(await f.text());
+    if(!d.storico||!d.lavori)throw new Error("file non valido");
+    if(!confirm("Importare il backup? I dati con lo stesso mese/ID verranno sostituiti, gli altri restano."))return;
+    const st=loadJ("cond_storico",[]);d.storico.forEach(r=>{const i=st.findIndex(z=>z.id===r.id);if(i>=0)st[i]=r;else st.push(r)});
+    const lv=loadJ("cond_lavori",[]);d.lavori.forEach(w=>{const i=lv.findIndex(z=>z.id===w.id);if(i>=0)lv[i]=w;else lv.push(w)});
+    saveJ("cond_storico",st);saveJ("cond_lavori",lv);
+    if(d.nomi&&d.nomi.length&&!loadJ("cond_nomi",[]).length)saveJ("cond_nomi",d.nomi);
+    for(const[id,v]of Object.entries(d.ricevute||{})){const blob=await(await fetch(v.data)).blob();await rcPut(id,v.name,blob)}
+    $("stBk").innerHTML='<span class="ok">Backup importato.</span>';renderStorico();
+  }catch(err){$("stBk").innerHTML=`<span class="wa">Importazione non riuscita: ${esc(err.message)}</span>`}
+  e.target.value="";
 });
 
 renderRows([]);calc();
