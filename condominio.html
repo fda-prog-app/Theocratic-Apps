@@ -41,11 +41,7 @@
   .paid{border-color:var(--ok)}
   .sep{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
   .sep input{flex:1;min-width:140px}
-  #updBanner{position:fixed;left:12px;right:12px;bottom:12px;z-index:50;background:var(--ac);color:#fff;border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between;box-shadow:0 4px 18px rgba(0,0,0,.3)}
-  #updBanner button{margin:0;background:#fff;color:#3f4a8a;padding:8px 14px}
-  @media (prefers-color-scheme:dark){#updBanner{color:#12141b}#updBanner button{background:#12141b;color:#8f9bf0}}
   .ver{text-align:center;color:var(--mu);font-size:.8rem;margin:18px 0 70px}
-  .ver button{background:none;color:var(--ac);padding:4px 8px;margin:0 0 0 4px;font-size:.8rem;text-decoration:underline}
 </style>
 </head>
 <body>
@@ -143,8 +139,7 @@
   </div>
 </div>
 
-<div class="ver">Versione <span id="verTxt"></span> <button id="chkUpd">Controlla aggiornamenti</button><div id="verSt"></div></div>
-<div id="updBanner" hidden><span>🔄 È disponibile una nuova versione.</span><button id="updGo">Aggiorna</button></div>
+<div class="ver">Versione <span id="verTxt"></span><div id="verSt"></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
@@ -453,25 +448,28 @@ $("imp").addEventListener("change",async e=>{
   e.target.value="";
 });
 
-/* ================= Aggiornamento app ================= */
-const APP_VERSION="2026-11-16.4";
+/* ================= Aggiornamento automatico ================= */
+const APP_VERSION="2026-11-16.6";
 $("verTxt").textContent=APP_VERSION;
-async function checkUpdate(manual){
-  const st=$("verSt");
-  if(manual)st.textContent="Controllo in corso…";
+(function autoUpdate(){
   try{
-    const base=location.origin+location.pathname;
-    const r=await fetch(base+"?_="+Date.now(),{cache:"no-store"});
-    if(!r.ok)throw new Error("HTTP "+r.status);
-    const m=(await r.text()).match(/APP_VERSION\s*=\s*"([^"]+)"/);
-    if(!m)throw new Error("versione non trovata");
-    if(m[1]!==APP_VERSION){$("updBanner").hidden=false;if(manual)st.textContent="Nuova versione: "+m[1]}
-    else if(manual)st.innerHTML='<span class="ok">Hai già l\'ultima versione.</span>';
-  }catch(e){if(manual)st.innerHTML='<span class="wa">Controllo non riuscito (offline?). '+esc(e.message)+'</span>'}
-}
-$("chkUpd").addEventListener("click",()=>checkUpdate(true));
-$("updGo").addEventListener("click",()=>{location.replace(location.origin+location.pathname+"?u="+Date.now())});
-checkUpdate(false);
+    if(sessionStorage.getItem("cond_upd")===APP_VERSION){sessionStorage.removeItem("cond_upd");$("verSt").innerHTML='<span class="ok">Aggiornata automaticamente ✓</span>'}
+  }catch(e){}
+  (async()=>{
+    try{
+      const base=location.origin+location.pathname;
+      const r=await fetch(base+"?_="+Date.now(),{cache:"no-store"});
+      if(!r.ok)return;
+      const t=await r.text();
+      const m=t.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+      if(!m||m[1]<=APP_VERSION)return;
+      if(sessionStorage.getItem("cond_upd_try")===m[1])return; /* evita cicli */
+      sessionStorage.setItem("cond_upd_try",m[1]);
+      sessionStorage.setItem("cond_upd",m[1]);
+      document.open();document.write(t);document.close(); /* carica subito la versione nuova */
+    }catch(e){/* offline o errore: si continua con la versione attuale */}
+  })();
+})();
 
 renderRows([]);calc();
 </script>
